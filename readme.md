@@ -14,9 +14,9 @@ We also will test GW host catalog constraints, including
 
 This project will have four deliverables
 1. Deliver CBC host catalogs for testing methods.
-  1. Information on this goal can be found in `./CBCCats/`
+    1. Information on this goal can be found in `./CBCCats/`
 2. Validate dark siren statistical methods with simulated catalogs.
-  1. Information on this goal can be found in `./initialValidation/`
+    1. Information on this goal can be found in `./initialValidation/`
 3. Test different galaxy and GW host conditions.
-  1. Information on this goal can be found in `./hostConditions/`
+    1. Information on this goal can be found in `./hostConditions/`
 4. Deliver the first pipeline for integrating GW-cosmology to LSST catalogs.
