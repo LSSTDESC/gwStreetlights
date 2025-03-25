@@ -190,7 +190,7 @@ def run(args):
                                                 nact=2,
                                                 proposals=['diff'], # I had to wrap this in a list for some reason, now it works.......
                                                 bound='live-multi',
-                                                npool=1024)
+                                                npool=512)
     return 0
         
 

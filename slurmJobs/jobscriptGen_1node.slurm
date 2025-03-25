@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH -N 4
+#SBATCH -N 1
 #SBATCH -C cpu
 #SBATCH -q regular
 #SBATCH -J bilbyTest

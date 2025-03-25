@@ -60,7 +60,7 @@ def get_source_model(source_model_name="BBH"):
     }
 
     if source_model_name not in source_models:
-        raise ValueError(f"Invalid source model '{source_model_name}'. Choose from {list(source_models.keys())}.")
+        raise ValueError("Invalid source model '{}'. Choose from {}.".format(source_model_name,list(source_models.keys())))
 
     return source_models[source_model_name]
 
@@ -88,7 +88,7 @@ def get_next_available_dir(base_dir):
 
     # Determine the next available number, starting from 0
     next_number = max(existing_numbers, default=-1) + 1
-    return f"{base_dir}_{next_number}"
+    return "{}_{}".format(base_dir,next_number)
 
 def fakeGeoCentTime():
     """
@@ -136,7 +136,7 @@ def get_merger_prior(merger_type="BBH"):
     }
 
     if merger_type not in merger_priors:
-        raise ValueError(f"Invalid merger type '{merger_type}'. Choose from {list(merger_priors.keys())}.")
+        raise ValueError("Invalid merger type '{}'. Choose from {}.".format(merger_type,list(merger_priors.keys())))
 
     return merger_priors[merger_type]()
 
