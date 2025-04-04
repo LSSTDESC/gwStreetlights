@@ -23,4 +23,4 @@ python /global/common/software/lsst/common/miniconda/start-kernel-cli.py desc-py
 #run the application: 
 # srun -n 512 -c 32 --cpu_bind=cores python /global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/slurmJobs/runSampler.py
 
-python /global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/slurmJobs/runSampler.py
+python /global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/slurmJobs/runSampler_4node.py
