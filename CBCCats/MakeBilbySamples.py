@@ -9,19 +9,22 @@ import os
 from astropy.time import Time
 
 cat_name2 = "skysim5000_v1.2"
+print("Loading catalog:",cat_name2)
 skysimCat = GCRCat.load_catalog(cat_name2) # Load the skysim catalog
-hostDF = pd.read_csv("/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mergers-w=Lum,n=1e7,FromSkySim50.csv") # Load the CBC catalog
+hostDF = pd.read_csv("/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalogs/CBCs_0,n=1e7,FromSkySim50.csv") # Load the CBC catalog
 
-prior = bb.gw.prior.BBHPriorDict(aligned_spin=False) # The bbh prior, spins misaligned
-prior["luminosity_distance"] = bb.gw.prior.UniformSourceFrame(0,5000,cosmology=skysimCat.cosmology,name='luminosity_distance', latex_label='$d_L$', unit='Mpc', boundary=None) # Update the luminosity distance prior, based on 
+prior = bb.gw.prior.ConditionalPriorDict("/pscratch/sd/s/seanmacb/gwCosmoDesc/lib/python3.10/site-packages/bilby/gw/prior_files/precessing_spins_bbh_gwtc3.prior") # The bbh prior, spins precessing
 
 keys = list(prior.sample())
-keys.pop(3)
-keys.pop(3)
+print("Injection keys before pop:",keys)
+keys.pop(4) # Pop RA
+keys.pop(4) # Pop Dec
 
 injDict = {}
 for k in keys:
     injDict[k] = []
+
+print("Injection dictionary:",injDict)
 
 cnt = 0
 for ids,row in hostDF.iterrows():
@@ -37,13 +40,16 @@ for ids,row in hostDF.iterrows():
 for k in injDict.keys():
     hostDF[k] = injDict[k]
 
+print("All host columns:",hostDF.columns.values)
 saveColumns = hostDF.columns.values[1:] # This is because of the extra column - check this always!!!
+print("All columns to be saved:",saveColumns)
 
-dataDir = "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data"
-hostDF.to_csv(os.path.join(dataDir,"mergers-w=Lum,n=1e7,FromSkySim50_withBilby.csv"),columns=saveColumns,index=False)
+dataDir = "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalogs"
+# hostDF.to_csv(os.path.join(dataDir,".csv"),columns=saveColumns,index=False)
 
-hostDF = pd.read_csv(os.path.join(dataDir,"mergers-w=Lum,n=1e7,FromSkySim50_withBilby.csv"))
+# hostDF = pd.read_csv(os.path.join(dataDir,"CBCs_0,n=1e7,FromSkySim50.csv"))
 
 hostDF["sampled"] = False
-
-hostDF.to_csv(os.path.join(dataDir,"mergers-w=Lum,n=1e7,FromSkySim50_withBilby.csv"),columns=saveColumns,index=False)
+savePath=os.path.join(dataDir,"BBHs_0,n=1e7,BBHs,FromSkySim50_withBilby.csv")
+hostDF.to_csv(savePath,columns=saveColumns,index=False)
+print("File saved:",savePath)
