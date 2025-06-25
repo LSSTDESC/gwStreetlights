@@ -17,8 +17,8 @@ prior = bb.gw.prior.ConditionalPriorDict("/pscratch/sd/s/seanmacb/gwCosmoDesc/li
 
 keys = list(prior.sample())
 print("Injection keys before pop:",keys)
-keys.pop(4) # Pop RA
-keys.pop(4) # Pop Dec
+keys.pop(3) # Pop RA
+keys.pop(3) # Pop Dec
 
 injDict = {}
 for k in keys:

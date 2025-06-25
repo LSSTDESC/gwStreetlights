@@ -1,9 +1,10 @@
 import pandas as pd
 import warnings
 warnings.filterwarnings("ignore", "Wswiglal-redir-stdio")
-cbcCatPath = "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mergers-w=Lum,n=1e7,FromSkySim50_withBilby.csv" # Modify this
+cbcCatPath = "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalogs/BBHs_0,n=1e7,NSBHs,FromSkySim50_withBilby.csv" # Modify this
 print("Loading CBC dictionary from",cbcCatPath)
 cbcCat = pd.read_csv(cbcCatPath)
+print("CBC DF Header:",cbcCat.columns.values)
 
 import bilby as bb
 import sys
@@ -12,13 +13,14 @@ import utils as ut
 import numpy as np
 bb.core.utils.log.setup_logger(outdir='.', label=None, log_level=30)
 
-priorPath = "" # Modify this
+priorPath = "/pscratch/sd/s/seanmacb/gwCosmoDesc/lib/python3.10/site-packages/bilby/gw/prior_files/precessing_spins_nsbh_gwtc3.prior" # Modify this
 print("Loading prior from",priorPath)
 prior = bb.gw.prior.ConditionalPriorDict(priorPath) 
 cbcKeys = prior.sample().keys()
+print("Prior keys:",cbcKeys)
 
 ifos = bb.gw.detector.InterferometerList(["H1","V1","L1"])
-duration = 5 # Modify this
+duration = 8 # Modify this
 sampling_frequency = 2048
 waveform_arguments = dict(waveform_approximant="IMRPhenomXP",  # waveform approximant name
                                   reference_frequency=50.0,  # gravitational waveform reference frequency (Hz)
@@ -65,6 +67,6 @@ for ids,row in cbcCat.iterrows():
 cbcCat["Individual SNR minimum"] = indiv_snr
 cbcCat["Network SNR"] = net_snr
 
-outPath = "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mergers-w=Lum,n=1e7,FromSkySim50_withBilby_andSNR.csv" # Modify this
+outPath = "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalogs/n=1e7,NSBHs,FromSkySim50_withBilbySNRs.csv" # Modify this
 cbcCat.to_csv(outPath,index=False) 
 print("Finished, csv written to",outPath)
