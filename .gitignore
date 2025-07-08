@@ -3,5 +3,4 @@
 hidden
 **__pycache__**
 slurmJobs/
-data/
 **.out
