@@ -11,9 +11,9 @@ from astropy.time import Time
 cat_name2 = "skysim5000_v1.2"
 print("Loading catalog:",cat_name2)
 skysimCat = GCRCat.load_catalog(cat_name2) # Load the skysim catalog
-hostDF = pd.read_csv("/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalogs/CBCs_0,n=1e7,FromSkySim50.csv") # Load the CBC catalog
+hostDF = pd.read_csv("/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalog_csvs/CBCs_0,n=1e7,FromSkySim50.csv") # Load the CBC catalog
 
-prior = bb.gw.prior.ConditionalPriorDict("/pscratch/sd/s/seanmacb/gwCosmoDesc/lib/python3.10/site-packages/bilby/gw/prior_files/precessing_spins_bbh_gwtc3.prior") # The bbh prior, spins precessing
+prior = bb.gw.prior.ConditionalPriorDict("/pscratch/sd/s/seanmacb/gwCosmoDesc/lib/python3.10/site-packages/bilby/gw/prior_files/bbh_aligned_gwtc.prior") # The bbh prior, spins aligned
 
 keys = list(prior.sample())
 print("Injection keys before pop:",keys)
@@ -44,12 +44,12 @@ print("All host columns:",hostDF.columns.values)
 saveColumns = hostDF.columns.values[1:] # This is because of the extra column - check this always!!!
 print("All columns to be saved:",saveColumns)
 
-dataDir = "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalogs"
+dataDir = "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalog_csvs"
 # hostDF.to_csv(os.path.join(dataDir,".csv"),columns=saveColumns,index=False)
 
 # hostDF = pd.read_csv(os.path.join(dataDir,"CBCs_0,n=1e7,FromSkySim50.csv"))
 
 hostDF["sampled"] = False
-savePath=os.path.join(dataDir,"BBHs_0,n=1e7,BBHs,FromSkySim50_withBilby.csv")
+savePath=os.path.join(dataDir,"BBHs_0,aligned,sampledOnly.csv")
 hostDF.to_csv(savePath,columns=saveColumns,index=False)
 print("File saved:",savePath)
