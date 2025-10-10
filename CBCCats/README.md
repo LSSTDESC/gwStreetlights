@@ -9,7 +9,6 @@ Here we have the code for simulating CBC host catalogs in advance of `bilby_pipe
     - `MakeBilbySamples.py` is the script to do this. The luminosity distance is determined using a cosmology, so you need to assume a cosmology here (relevant for different CBC catalog generation).
 -  Compute the network and individual SNR of the drawn CBC's.
     -  `SepBilbyBySNR.py` is the script to do this.
-    -  `MakeBilbySamples.py`, and adds that information to a new `.csv`
 -  Downselects the CBC host galaxies to make up the CBC catalogs used in the forthcoming analysis.
     -  `Selecting catalogs.ipynb` is the script that does this. The notebook also includes some quick visualizations to ensure that the the input sample is not overtly biased.
 -  Reads a base `.ini` file associated with a `bilby_pipe` submission, and appends the necessary lines to the file for job submission based on the CBC samples.
