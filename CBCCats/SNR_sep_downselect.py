@@ -42,7 +42,7 @@ def compute_snr(ifos,generator,row):
 
     indiv_snr = np.min(indivSNR)
 
-    return network_snr,indivSNR
+    return network_snr,indiv_snr
 
 def loadPrior(path):
     """
@@ -136,17 +136,17 @@ def main(args):
             network_snr, individual_snr = compute_snr(ifos,waveform_generator,injDict)
 
             # Apply thresholds
-            if (network_snr >= network_snr_threshold and individual_snrs >= individual_snr_threshold):
+            if (network_snr >= network_snr_threshold and individual_snr >= individual_snr_threshold):
                 accepted_rows.append(row)
 
             # Print progress
-            if len(accepted_rows)*100//accepted_rows==progress:
-                print("{}% complete for {}".format(len(accepted_rows)*100//accepted_rows,outpath))
+            if len(accepted_rows)*100//n==progress:
+                print("{}% complete for {}".format(len(accepted_rows)*100//n,outpath))
                 progress+=1
 
         # Append accepted rows to output CSV
         pd.DataFrame(accepted_rows,columns=list(keys)).to_csv(
-            outpath, mode="a", header=not os.path.exists(outpath), index=False
+            outpath, mode="a", header=True, index=False
         )
         print(f"Output .csv written to {outpath}.")
 
