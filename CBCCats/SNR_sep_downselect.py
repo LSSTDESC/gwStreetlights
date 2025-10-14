@@ -134,10 +134,12 @@ def main(args):
 
             # Compute SNRs
             network_snr, individual_snr = compute_snr(ifos,waveform_generator,injDict)
+            injDict["Minimum Individual SNR"] = individual_snr
+            injDict["Network SNR"] = network_snr
 
             # Apply thresholds
             if (network_snr >= network_snr_threshold and individual_snr >= individual_snr_threshold):
-                accepted_rows.append(row)
+                accepted_rows.append(list(injDict.values()))
 
             # Print progress
             if len(accepted_rows)*100//n==progress:
@@ -145,7 +147,7 @@ def main(args):
                 progress+=1
 
         # Append accepted rows to output CSV
-        pd.DataFrame(accepted_rows,columns=list(keys)).to_csv(
+        pd.DataFrame(accepted_rows,columns=list(injDict.keys())).to_csv(
             outpath, mode="a", header=True, index=False
         )
         print(f"Output .csv written to {outpath}.")
