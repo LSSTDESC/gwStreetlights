@@ -1,0 +1,21 @@
+# These are the priors for aligned spin BBH systems
+# Derived from the gwtc 4 paper: https://arxiv.org/pdf/2508.18083
+
+# Still to do
+mass_1 = Constraint(name='mass_1', minimum=5, maximum=250, latex_label="$m_1$") # Still need to make the analytical form, see table 6 and section 6.1 from https://arxiv.org/pdf/2508.18083
+
+# For chi_i, it should be a truncated gaussian, but it is not clear what the values of the truncated gaussian are. See Gaussian Component Spins in https://arxiv.org/pdf/2508.18083
+# It looks like the posterior is approximately µ~0.1, and σ~0.4
+chi_1 = bilby.gw.prior.AlignedSpin(name='chi_1', a_prior=Uniform(minimum=0, maximum=0.99))
+chi_2 = bilby.gw.prior.AlignedSpin(name='chi_2', a_prior=Uniform(minimum=0, maximum=0.99))
+
+# done
+mass_2 = Constraint(name='mass_2', minimum=5, maximum=200, latex_label="$m_2$") # Apply constraint here, instead of the analytical form for mass_1, since we are using the mass ratio below
+mass_ratio = bilby.core.prior.analytical.PowerLaw(1.2, 0.01, 1, name="mass_ratio", latex_label="$q$", unit=None, boundary=None) # This is directly from sec 6.2 of https://arxiv.org/pdf/2508.18083
+chirp_mass = bilby.gw.prior.UniformInComponentsChirpMass(name='chirp_mass', minimum=5, maximum=250) # Looks good, make sure not to cut off the high chirp mass end
+luminosity_distance = bilby.gw.prior.UniformSourceFrame(name='luminosity_distance', minimum=1e1, maximum=3e4) # Select this upper bound since we go out to redshift of z~3 in SkySim5000
+dec = Cosine(name='dec')
+ra = Uniform(name='ra', minimum=0, maximum=2 * np.pi, boundary='periodic')
+psi = Uniform(name='psi', minimum=0, maximum=np.pi, boundary='periodic') # polarization angle
+phase = Uniform(name='phase', minimum=0, maximum=2 * np.pi, boundary='periodic') # Should be no variation between this and the precessing case
+theta_jn = Sine(name='theta_jn') # Should be no variation between this and the precessing case
