@@ -44,6 +44,15 @@ def makeLabel(batch,item,spin):
 def makeOutDir(base,spec):
     return os.path.join(base,spec)
 
+def getWaveformModel(typ):
+    if typ not in ("BBH","NSBH"):
+        raise ValueError("{} is not one of supported types: ('BBH','NSBH')".format(typ))
+        return -1
+    if typ=="BBH":
+        return "IMRPhenomXPHM"
+    else:
+        return "IMRPhenomNSBH"
+
 def makePriorFilePath(typ,spin):
     if typ not in ("BBH","NSBH"):
         raise ValueError("{} is not one of supported types: ('BBH','NSBH')".format(typ))
@@ -113,7 +122,7 @@ files = np.sort(np.array(os.listdir(dataDir))[msk])
 
 print(f"Relevant files: {files}")
 
-fieldKeys = ["label","outdir","prior-file", "injection-dict","injection-file"]
+fieldKeys = ["label","outdir","prior-file", "injection-dict","injection-file","waveform-approximant"]
 
 for f in files:
     subsampledDF = pd.read_csv(os.path.join(dataDir,f))
@@ -138,10 +147,11 @@ for f in files:
         injKeys = getInjection_keys(CBCType,getSpinFromName(alignment),priorPath)
         injDict = makeInjection_dict(injKeys,row)        
         injectionFPath = getInjectionFilePath(batchPath,label)
+        wfModel = getWaveformModel(CBCType)
 
         labels_snrs_dict[label] = row["Network SNR"]
 
-        toWrite = np.append(toWrite,[label,outDir,priorPath,injDict,injectionFPath])
+        toWrite = np.append(toWrite,[label,outDir,priorPath,injDict,injectionFPath,wfModel])
 
 # Reshape the final array
     toWrite = np.reshape(toWrite,(-1,len(fieldKeys)))
@@ -159,7 +169,7 @@ for f in files:
         writeFile = os.path.join(ini_basepath,writeables[0])+".ini"
         
         for field,value in zip(fieldKeys,writeables):
-            if field!="injection-dict":
+            if field!="injection-dict": # Not using the injection dict anymore
                 read.append("\n")
                 read.append("{}={}\n".format(field,value))
     

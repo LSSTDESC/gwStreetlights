@@ -55,4 +55,4 @@ for weight in ["UniformWeight","StellarMassWeight","uWeight","rWeight","yWeight"
         out2 = ",".join(inPath2.split(",")[:-1])+",withSNRs"
         prior1 = priorSelector("aligned",CBCType)
         prior2 = priorSelector("precessing",CBCType)
-        print(f"python SNR_sep_downselect.py --csv1 {inPath1} --csv2 {inPath2} --out_csv_1 {out1} --out_csv_2 {out2} --prior_path_one {prior1} --prior_path_two {prior2} --n_samples {n_samps} --network {network} --individual {individual} --duration {duration} &> {outDir}/{weight}_{CBCType}.out &",end="\n\n")
+        print(f"python SNR_sep_downselect.py --csv1 {inPath1} --csv2 {inPath2} --out_csv_1 {out1} --out_csv_2 {out2} --prior_path_one {prior1} --prior_path_two {prior2} --n_samples {n_samps} --network {network} --individual {individual} --duration {duration} &> {outDir}/{weight}_{CBCType}.out --cbc_type {CBCType} &",end="\n\n")

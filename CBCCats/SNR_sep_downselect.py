@@ -54,13 +54,23 @@ def loadPrior(path):
     print("Prior keys:",cbcKeys)
     return prior,cbcKeys
 
-def configureIFOS():
+def getWaveformModel(typ):
+    if typ not in ("BBH","NSBH"):
+        raise ValueError("{} is not one of supported types: ('BBH','NSBH')".format(typ))
+        return -1
+    if typ=="BBH":
+        return "IMRPhenomXPHM"
+    else:
+        return "IMRPhenomNSBH"
+
+def configureIFOS(cbcT):
     """
     Configure the interferometers as needed. For now, I am leaving these default.
     """
+    approximant = getWaveformModel(cbcT)
     ifos = bb.gw.detector.InterferometerList(["H1","V1","L1"])
     sampling_frequency = 2048
-    waveform_arguments = dict(waveform_approximant="IMRPhenomXP",  # waveform approximant name
+    waveform_arguments = dict(waveform_approximant=approximant,  # waveform approximant name
                                       reference_frequency=50.0,  # gravitational waveform reference frequency (Hz)
                              )
     return ifos,sampling_frequency,waveform_arguments
@@ -82,10 +92,12 @@ def main(args):
     path1 = args.csv1
     path2 = args.csv2
 
+    cbcType = args.cbc_type
+
     prior1,cbcKeys1 = loadPrior(args.prior_path_one)
     prior2,cbcKeys2 = loadPrior(args.prior_path_two)
     duration = args.duration
-    ifos,sampling_frequency,waveform_arguments = configureIFOS()
+    ifos,sampling_frequency,waveform_arguments = configureIFOS(cbcType)
 
     # Randomly split total samples between the two catalogs
     n1 = int(np.random.normal(args.n_samples/2,np.sqrt(args.n_samples)))
@@ -163,6 +175,7 @@ if __name__ == "__main__":
     parser.add_argument("--out_csv_2", required=True, help="Path to second output CSV file.")
     parser.add_argument("--prior_path_one", required=True, help="Path to the prior file associated with the first csv.")
     parser.add_argument("--prior_path_two", required=True, help="Path to the prior file associated with the second csv.")
+    parser.add_argument("--cbc_type", required=True, help="The type of CBC that we are sampling.")
     parser.add_argument("--n_samples", type=int, required=True, help="Total number of samples.")
     parser.add_argument("--network", type=int, required=True, help="The network SNR threshold.")
     parser.add_argument("--individual", type=int, required=True, help="The individual SNR threshold.")
