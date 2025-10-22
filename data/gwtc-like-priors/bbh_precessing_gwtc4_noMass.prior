@@ -11,16 +11,25 @@
 
 # Done
 
-luminosity_distance = bilby.gw.prior.UniformSourceFrame(name='luminosity_distance', minimum=1e1, maximum=3e4) # Select this upper bound since we go out to redshift of z~3 in SkySim5000
-dec = Cosine(name='dec') # Assume a cosine prior on dec
-ra = Uniform(name='ra', minimum=0, maximum=2 * np.pi, boundary='periodic') # Assume uniform prior for ra
+luminosity_distance = bilby.gw.prior.UniformSourceFrame(name='luminosity_distance', minimum=1e1, maximum=3e4) 
+# Select this upper bound since we go out to redshift of z~3 in SkySim5000
+dec = Cosine(name='dec') 
+# Assume a cosine prior on dec
+ra = Uniform(name='ra', minimum=0, maximum=2 * np.pi, boundary='periodic') 
+# Assume uniform prior for ra
 # For a_i, it should be a truncated gaussian, the values below are from the hyperposterior chains, assuming that the spin distributions of m1 and m2 are different
 a_1 = bilby.core.prior.TruncatedGaussian(0.10096954, 0.32861128, 0, 1, name='a_1')
 a_2 = bilby.core.prior.TruncatedGaussian(0.12609029, 0.32611317, 0, 1, name='a_2')
 psi = Uniform(name='psi', minimum=0, maximum=np.pi, boundary='periodic')
-phase = Uniform(name='phase', minimum=0, maximum=2 * np.pi, boundary='periodic') # Should be no variation between this and the aligned case
-theta_jn = Sine(name='theta_jn') # Should be no variation between this and the aligned case
-phi_12 = Uniform(name='phi_12', minimum=0, maximum=2 * np.pi, boundary='periodic') # Assume that the spin azimuthal angle difference is uniformly distributed
-phi_jl = Uniform(name='phi_jl', minimum=0, maximum=2 * np.pi, boundary='periodic') # Assume that the angle between J and L is uniformly distributed
-tilt_1 = Sine(name='tilt_1') # Assume that tilt angle prior is distributed using a sine function
-tilt_2 = Sine(name='tilt_2') # Assume that tilt angle prior is distributed using a sine function
+phase = Uniform(name='phase', minimum=0, maximum=2 * np.pi, boundary='periodic') 
+# Should be no variation between this and the aligned case
+theta_jn = Sine(name='theta_jn') 
+# Should be no variation between this and the aligned case
+phi_12 = Uniform(name='phi_12', minimum=0, maximum=2 * np.pi, boundary='periodic') 
+# Assume that the spin azimuthal angle difference is uniformly distributed
+phi_jl = Uniform(name='phi_jl', minimum=0, maximum=2 * np.pi, boundary='periodic') 
+# Assume that the angle between J and L is uniformly distributed
+tilt_1 = Sine(name='tilt_1') 
+# Assume that tilt angle prior is distributed using a sine function
+tilt_2 = Sine(name='tilt_2') 
+# Assume that tilt angle prior is distributed using a sine function
