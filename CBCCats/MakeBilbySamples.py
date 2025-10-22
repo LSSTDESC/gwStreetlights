@@ -11,7 +11,6 @@ if "astropy.cosmology" in sys.modules:
 import bilby as bb
 import numpy as np
 import pandas as pd
-import GCR
 import GCRCatalogs as GCRCat
 import matplotlib.pyplot as plt
 import os
@@ -19,6 +18,8 @@ import argparse
 from astropy.time import Time
 from astropy.cosmology import FlatLambdaCDM
 from astropy import units as u
+import gwcosmo
+
 
 # Manually set Bilby's default cosmology
 bb.gw.cosmology.DEFAULT_COSMOLOGY = FlatLambdaCDM(H0=71* u.km / (u.Mpc*u.s), Om0=0.2648, Tcmb0=0*u.K, Neff=3.04, m_nu=None, Ob0=0.0448)
@@ -78,7 +79,7 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--dataDir", type=str, 
                         default="/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalog_csvs",
-                        help="The path to the data directory.")
+                        help="The path to the data directory where the output csv will be written.")
     parser.add_argument("-c", "--catalogName", type=str, default="skysim5000_v1.2_small",
                         help="The galaxy catalog name, used to identify the cosmology in the luminosity distance calculation.")
     parser.add_argument("-C", "--CBCCatalogPath", type=str, 
