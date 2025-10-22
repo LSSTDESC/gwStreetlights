@@ -35,8 +35,9 @@ def getGWTC4MassPrior(typ):
 def chirp(m1,m2):
     return np.power(np.power(m1*m2,3)/(m1+m2),0.2) 
 
-def getMassParamSample(typ):
-    m1,m2 = getGWTC4MassPrior(typ).sample(1)
+def getMassParamSample(mPrior):
+    m1_m2 = mPrior.sample(1)
+    m1,m2 = m1_m2[0][0],m1_m2[1][0]
     q = m2/m1
     chrp = chirp(m1,m2)
     return m1,m2,q,chrp
@@ -70,13 +71,15 @@ def main(args):
     injDict["mass_2"] = []
     injDict["mass_ratio"] = []
     injDict["chirp_mass"] = []
-
+   
     print("Injection dictionary:",injDict)
     
+    massPrior = getGWTC4MassPrior(cbcType) 
+
     cnt = 0
     for ids,row in hostDF.iterrows():
         thisSample = prior.sample()
-        mass1,mass2,q_,churp = getMassParamSample(cbcType)
+        mass1,mass2,q_,churp = getMassParamSample(massPrior)
         for k in keys:
             if k!="luminosity_distance":
                 injDict[k].append(thisSample[k])
