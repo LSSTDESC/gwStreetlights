@@ -24,7 +24,25 @@ import gwcosmo
 # Manually set Bilby's default cosmology
 bb.gw.cosmology.DEFAULT_COSMOLOGY = FlatLambdaCDM(H0=71* u.km / (u.Mpc*u.s), Om0=0.2648, Tcmb0=0*u.K, Neff=3.04, m_nu=None, Ob0=0.0448)
 
+def getGWTC4MassPrior(typ):
+    if typ.lower()=="bbh":
+        return gwcosmo.priors.BBH_broken_powerlaw_multi_peak_gaussian(alpha_1=1.7282865329473678,alpha_2=4.511690397723029,b=0.5,beta=1.1709777343204348,mminbh=5.058572081868678,mmaxbh=300,lambda_g=0.36102328981694193,lambda_g_low=0.5860680995810035,mu_g_low=9.763667347989355,sigma_g_low=0.6491643865532204,mu_g_high=32.76291758105389,sigma_g_high=3.9181194675793933,delta_m=4.320691590156577)
+    elif typ.lower()=="nsbh":
+        return 0 # Need to add the BBH mass dist here, when available
+    else:
+        raise ValueError(f"Provided type ({typ}) is not one of BBH or NSBH")
+
+def chirp(m1,m2):
+    return np.power(np.power(m1*m2,3)/(m1+m2),0.2) 
+
+def getMassParamSample(typ):
+    m1,m2 = getGWTC4MassPrior(typ).sample(1)
+    q = m2/m1
+    chrp = chirp(m1,m2)
+    return m1,m2,q,chrp
+
 def main(args):
+    cbcType = "BBH"
     dataDir = args.dataDir
     cat_name2 = args.catalogName
     CBCCatalogPath = args.CBCCatalogPath
@@ -48,22 +66,36 @@ def main(args):
     injDict = {}
     for k in keys:
         injDict[k] = []
-    
+    injDict["mass_1"] = []
+    injDict["mass_2"] = []
+    injDict["mass_ratio"] = []
+    injDict["chirp_mass"] = []
+
     print("Injection dictionary:",injDict)
     
     cnt = 0
     for ids,row in hostDF.iterrows():
         thisSample = prior.sample()
+        mass1,mass2,q_,churp = getMassParamSample(cbcType)
         for k in keys:
             if k!="luminosity_distance":
                 injDict[k].append(thisSample[k])
         injDict["luminosity_distance"].append(float(str(skysimCat.cosmology.luminosity_distance(row["redshiftHubble"])).split(" ")[0]))
+        injDict["mass_1"].append(mass1)
+        injDict["mass_2"].append(mass2)
+        injDict["mass_ratio"].append(q_)
+        injDict["chirp_mass"].append(churp)
         if cnt % 100000 == 0:
             print("{}% finished".format(cnt//100000))
         cnt+=1
     
     for k in injDict.keys():
         hostDF[k] = injDict[k]
+
+    hostDF["mass_1"] = injDict["mass_1"]
+    hostDF["mass_2"] = injDict["mass_2"]
+    hostDF["mass_ratio"] = injDict["mass_ratio"]
+    hostDF["chirp_mass"] = injDict["chirp_mass"]
     
     print("All host columns:",hostDF.columns.values)
     saveColumns = hostDF.columns.values[1:] # This is because of the extra column - check this always!!!

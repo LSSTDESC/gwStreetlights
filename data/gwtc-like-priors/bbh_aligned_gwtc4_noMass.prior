@@ -1,0 +1,23 @@
+# These are the priors for aligned spin BBH systems
+# Derived from the gwtc 4 paper: https://arxiv.org/pdf/2508.18083
+
+# Still to do
+# mass_1 = gwcosmo.priors.BBH_broken_powerlaw_multi_peak_gaussian(alpha_1=1.7282865329473678,alpha_2=4.511690397723029,b=0.5,beta=1.1709777343204348,mminbh=5.058572081868678,mmaxbh=300,lambda_g=0.36102328981694193,lambda_g_low=0.5860680995810035,mu_g_low=9.763667347989355,sigma_g_low=0.6491643865532204,mu_g_high=32.76291758105389,sigma_g_high=3.9181194675793933,delta_m=4.320691590156577,name='mass_1',latex_label="$m_1$") # it is still not clear what 'b' is... 
+# mass_2 = gwcosmo.priors.BBH_broken_powerlaw_multi_peak_gaussian(alpha_1=1.7282865329473678,alpha_2=4.511690397723029,b=0.5,beta=1.1709777343204348,mminbh=3.5511378810761487,mmaxbh=300,lambda_g=0.36102328981694193,lambda_g_low=0.5860680995810035,mu_g_low=9.763667347989355,sigma_g_low=0.6491643865532204,mu_g_high=32.76291758105389,sigma_g_high=3.9181194675793933,delta_m=4.910052811883009,name='mass_2',latex_label="$m_2$") # Same issue with b here..
+
+# mass_ratio = bilby.core.prior.analytical.PowerLaw(1.2, 0.01, 1, name="mass_ratio", latex_label="$q$", unit=None, boundary=None) # This is directly from sec 6.2 of https://arxiv.org/pdf/2508.18083
+# chirp_mass = bilby.gw.prior.UniformInComponentsChirpMass(name='chirp_mass', minimum=5, maximum=250) # Looks good, make sure not to cut off the high chirp mass end
+luminosity_distance = bilby.gw.prior.UniformSourceFrame(name='luminosity_distance', minimum=1e1, maximum=3e4)
+ # Select this upper bound since we go out to redshift of z~3 in SkySim5000
+
+dec = Cosine(name='dec')
+ra = Uniform(name='ra', minimum=0, maximum=2 * np.pi, boundary='periodic')
+# For chi_i, it should be a truncated gaussian, the values below are from the hyperposterior chains, assuming that the spin distributions of m1 and m2 are different
+chi_1 = bilby.core.prior.TruncatedGaussian(0.10096954, 0.32861128, 0, 1, name='chi_1')
+chi_2 = bilby.core.prior.TruncatedGaussian(0.12609029, 0.32611317, 0, 1, name='chi_2')
+psi = Uniform(name='psi', minimum=0, maximum=np.pi, boundary='periodic') 
+# polarization angle
+phase = Uniform(name='phase', minimum=0, maximum=2 * np.pi, boundary='periodic') 
+# Should be no variation between this and the precessing case
+theta_jn = Sine(name='theta_jn') 
+# Should be no variation between this and the precessing case
