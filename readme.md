@@ -8,8 +8,8 @@ We will test three different galaxy catalog conditions
 1. Galaxy completeness effects
 
 We also will test GW host catalog constraints, including
-1. GW event localization completely enclosed in galaxy survey footprint
-2. GW event localization partially enclosed in galaxy survey footprint
+1. GW event localization completely/partially enclosed in galaxy survey footprint
+2. Different CBC weighting schemes that have an impact on the underlying P(z) distribution
 3. GW host galaxy inside/outside of galaxy survey footprint.
 
 This project will have four deliverables
