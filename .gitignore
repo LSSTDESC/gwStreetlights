@@ -5,3 +5,4 @@ hidden
 slurmJobs/
 **.out
 data/*.txt
+CBCCats/outFiles/
