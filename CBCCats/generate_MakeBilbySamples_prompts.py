@@ -58,7 +58,7 @@ def priorSelector(alignment,CBCType):
         print("Something went wrong in the prior selector, inputs were alignment: {}. CBCType: {}".format(alignment,CBCType))
 
 def prompt(datadir,catname,catpath,priorpath,outfile):
-    return f"./MakeBilbySamples.py -d {datadir} -c {catname} -C {catpath} -p {priorpath} -o {outfile} &"
+    return f"./MakeBilbySamples.py -d {datadir} -c {catname} -C {catpath} -p {priorpath} -o {outfile} &> outFiles/gwtc4_{cbcweight}_{cbctype}_{alignment}.log &"
 
 if __name__=="__main__":
     for cbcweight in CBCWeights:

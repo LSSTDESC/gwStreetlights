@@ -85,7 +85,10 @@ def makeInjectionDictionary(keys,r):
             injDict[key] = r["m"+key]
         else:
             injDict[key] = r[key] 
-    injDict["geocent_time"] = ut.fakeGeoCentTime()
+    gcTime = 1
+    while abs(gcTime)>0.1:
+        gcTime = np.random.normal(0,0.01,size=1)[0]
+    injDict["geocent_time"] =gcTime
     return injDict
 
 def main(args):
@@ -118,8 +121,8 @@ def main(args):
     network_snr_threshold = args.network
     individual_snr_threshold = args.individual
 
-    for n, path, outpath,keys,prior in zip([n1, n2], [path1, path2], [out1, out2],
-                                         [cbcKeys1,cbcKeys2], [prior1,prior2]):
+    for n, path, outpath,keys in zip([n1, n2], [path1, path2], [out1, out2],
+                                         [cbcKeys1,cbcKeys2]):
 
         df = pd.read_csv(path)
         

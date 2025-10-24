@@ -63,14 +63,14 @@ def makePriorFilePath(typ,spin):
 
     if typ=="BBH":
         if spin==1: # BBH, spins aligned
-            return "/pscratch/sd/s/seanmacb/gwCosmoDesc/lib/python3.10/site-packages/bilby/gw/prior_files/bbh_aligned_gwtc.prior"
+            return "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/gwtc-like-priors/bbh_aligned_gwtc4_forBilbyPE.prior"
         else: # BBH, spins misaligned
-            return "/pscratch/sd/s/seanmacb/gwCosmoDesc/lib/python3.10/site-packages/bilby/gw/prior_files/bbh_precessing_gwtc.prior"
+            return "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/gwtc-like-priors/bbh_precessing_gwtc4_forBilbyPE.prior"
     else:
         if spin==1: # NSBH, spins aligned
-            return "/pscratch/sd/s/seanmacb/gwCosmoDesc/lib/python3.10/site-packages/bilby/gw/prior_files/nsbh_aligned_gwtc.prior"
+            return "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/gwtc-like-priors/nsbh_aligned_gwtc4_forBilbyPE.prior"
         else: # NSBH, spins misaligned
-            return "/pscratch/sd/s/seanmacb/gwCosmoDesc/lib/python3.10/site-packages/bilby/gw/prior_files/nsbh_precessing_gwtc.prior"
+            return "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/gwtc-like-priors/nsbh_precessing_gwtc4_forBilbyPE.prior"
 
 def getSpinFromName(name):
     if name=='aligned':
@@ -96,9 +96,12 @@ def makeInjection_dict(injKeys,row):
             # Originally had 'm' before here...
         else:
             myDict[k] = row[k]
-    myDict["geocent_time"] = ut.fakeGeoCentTime()
+    gcTime = 1
+    while abs(gcTime)>0.1:
+        gcTime = np.random.normal(0,0.01,size=1)[0]
+    myDict["geocent_time"] =gcTime
     for ent in myDict.keys():
-        myDict[ent] = float(myDict[ent])
+        myDict[ent] = float(myDict[ent]) # Formatting fix
     return myDict
 
 def getInjection_keys(typ,spin,ppath):
@@ -112,11 +115,12 @@ def getInjection_keys(typ,spin,ppath):
 
 basePath = "/pscratch/sd/s/seanmacb/proj411ProdRuns/catalogs"
 alignment = ["precessing","aligned"]
-subDir = ["Uniform,r","Uniform,u","Uniform,y","Uniform,StellarMass","Uniform,Uniform"]
+# subDir = ["Uniform,r","Uniform,u","Uniform,y","Uniform,StellarMass","Uniform,Uniform"]
+# subDir = ["Uniform,r","Uniform,u","Uniform,y"]
 
 dataDir="/global/u1/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalog_csvs"
 # pd.read_csv()
-msk = [(x.endswith("withSNRs.csv") and (x.__contains__("BBH"))) for x in os.listdir(dataDir)] 
+msk = [(x.endswith("withSNRs_gwtc4.csv") and (x.__contains__("BBH"))) for x in os.listdir(dataDir)] 
 # To include NSBH's, add an or statement to the second conditional
 files = np.sort(np.array(os.listdir(dataDir))[msk])
 

@@ -31,28 +31,40 @@ CBCType = ["BBH","NSBH"]
 def priorSelector(alignment,CBCType):
     if alignment=="aligned":
         if CBCType=="BBH":
-            return "/pscratch/sd/s/seanmacb/gwCosmoDesc/lib/python3.10/site-packages/bilby/gw/prior_files/bbh_aligned_gwtc.prior" # Return the BBH aligned prior
+            return "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/gwtc-like-priors/bbh_aligned_gwtc4_forBilbyPE.prior" # Return the BBH aligned prior
         elif CBCType=="NSBH":
-            return "/pscratch/sd/s/seanmacb/gwCosmoDesc/lib/python3.10/site-packages/bilby/gw/prior_files/nsbh_aligned_gwtc.prior" # Return the NSBH aligned prior
+            return "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/gwtc-like-priors/nsbh_aligned_gwtc4_forBilbyPE.prior" # Return the NSBH aligned prior
         else:
             print("Something went wrong in the prior selector, inputs were alignment: {}. CBCType: {}".format(alignment,CBCType))
     elif alignment=="precessing":
         if CBCType=="BBH":
-            return "/pscratch/sd/s/seanmacb/gwCosmoDesc/lib/python3.10/site-packages/bilby/gw/prior_files/bbh_precessing_gwtc.prior" # Return the BBH precessing prior
+            return "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/gwtc-like-priors/bbh_precessing_gwtc4_forBilbyPE.prior" # Return the BBH precessing prior
         elif CBCType=="NSBH":
-            return "/pscratch/sd/s/seanmacb/gwCosmoDesc/lib/python3.10/site-packages/bilby/gw/prior_files/nsbh_precessing_gwtc.prior" # Return the NSBH precessing prior
+            return "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/gwtc-like-priors/nsbh_precessing_gwtc4_forBilbyPE.prior" # Return the NSBH precessing prior
         else:
             print("Something went wrong in the prior selector, inputs were alignment: {}. CBCType: {}".format(alignment,CBCType))
     else:
         print("Something went wrong in the prior selector, inputs were alignment: {}. CBCType: {}".format(alignment,CBCType))
 
-for weight in ["UniformWeight","StellarMassWeight","uWeight","rWeight","yWeight"]:
-    for CBCType,n_samps,duration,network in zip(["BBH","NSBH"],[300,10],[8,32],[9,8]):
+cbcWeights = ["UniformWeight","StellarMassWeight","uWeight","rWeight","yWeight"]
+cbcTypes = ["BBH","NSBH"]
+sampNumbers = [300,10]
+signalDurations = [8,32]
+networkThresholds = [9,8]
+
+# This is for the BBH only prompts
+cbcTypes = ["BBH"]
+sampNumbers = [300]
+signalDurations = [8]
+networkThresholds = [9]
+
+for weight in cbcWeights:
+    for CBCType,n_samps,duration,network in zip(cbcTypes,sampNumbers,signalDurations,networkThresholds):
         inPath1 = basePath+weight+","+CBCType+","+"aligned"+","+suffix # Aligned
         inPath2 = basePath+weight+","+CBCType+","+"precessing"+","+suffix # Precessing
         individual = 2
-        out1 = ",".join(inPath1.split(",")[:-1])+",withSNRs"
-        out2 = ",".join(inPath2.split(",")[:-1])+",withSNRs"
+        out1 = ",".join(inPath1.split(",")[:-1])+",withSNRs_gwtc4"
+        out2 = ",".join(inPath2.split(",")[:-1])+",withSNRs_gwtc4"
         prior1 = priorSelector("aligned",CBCType)
         prior2 = priorSelector("precessing",CBCType)
-        print(f"python SNR_sep_downselect.py --csv1 {inPath1} --csv2 {inPath2} --out_csv_1 {out1} --out_csv_2 {out2} --prior_path_one {prior1} --prior_path_two {prior2} --n_samples {n_samps} --network {network} --individual {individual} --duration {duration} &> {outDir}/{weight}_{CBCType}.out --cbc_type {CBCType} &",end="\n\n")
+        print(f"python SNR_sep_downselect.py --csv1 {inPath1} --csv2 {inPath2} --out_csv_1 {out1} --out_csv_2 {out2} --prior_path_one {prior1} --prior_path_two {prior2} --n_samples {n_samps} --network {network} --individual {individual} --duration {duration} &> {outDir}/{weight}_{CBCType}.out --cbc_type {CBCType} &> outFiles/{CBCType}_{weight}_{n_samps}_{duration}_{network}.out &",end="\n\n")
