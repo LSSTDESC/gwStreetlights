@@ -28,7 +28,9 @@ def getGWTC4MassPrior(typ):
     if typ.lower()=="bbh":
         return gwcosmo.priors.BBH_broken_powerlaw_multi_peak_gaussian(alpha_1=1.7282865329473678,alpha_2=4.511690397723029,b=0.5,beta=1.1709777343204348,mminbh=5.058572081868678,mmaxbh=300,lambda_g=0.36102328981694193,lambda_g_low=0.5860680995810035,mu_g_low=9.763667347989355,sigma_g_low=0.6491643865532204,mu_g_high=32.76291758105389,sigma_g_high=3.9181194675793933,delta_m=4.320691590156577)
     elif typ.lower()=="nsbh":
-        return 0 # Need to add the BBH mass dist here, when available
+        bhPrior = gwcosmo.priors.BBH_broken_powerlaw_multi_peak_gaussian(alpha_1=1.7282865329473678,alpha_2=4.511690397723029,b=0.5,beta=1.1709777343204348,mminbh=5.058572081868678,mmaxbh=300,lambda_g=0.36102328981694193,lambda_g_low=0.5860680995810035,mu_g_low=9.763667347989355,sigma_g_low=0.6491643865532204,mu_g_high=32.76291758105389,sigma_g_high=3.9181194675793933,delta_m=4.320691590156577)
+        nsPrior = bb.core.prior.TruncatedGaussian(1.4, 0.68, 0.1, 3, name="mass_2", latex_label="$m_2$", unit=None, boundary=None) # This is the GWTC-4 result
+        return [bhPrior,nsPrior]
     else:
         raise ValueError(f"Provided type ({typ}) is not one of BBH or NSBH")
 
@@ -36,14 +38,22 @@ def chirp(m1,m2):
     return np.power(np.power(m1*m2,3)/(m1+m2),0.2) 
 
 def getMassParamSample(mPrior):
-    m1_m2 = mPrior.sample(1)
-    m1,m2 = m1_m2[0][0],m1_m2[1][0]
+    if type(mPrior)==gwcosmo.priors.BBH_broken_powerlaw_multi_peak_gaussian:
+        m1_m2 = mPrior.sample(1)
+        m1,m2 = m1_m2[0][0],m1_m2[1][0]
+    elif type(mPrior)==list:
+        # Handle the multi-prior case
+        m1Prior = mPrior[0]
+        m2Prior = mPrior[1]
+        m1,m2 = m1Prior.sample(1)[0][0],m2Prior.sample(1)[0]
+    else:
+        raise ValueError(f"Provided prior ({mPrior}) is incorrect, something went wrong here...")
     q = m2/m1
     chrp = chirp(m1,m2)
     return m1,m2,q,chrp
 
 def main(args):
-    cbcType = "BBH"
+    cbcType = "NSBH"
     dataDir = args.dataDir
     cat_name2 = args.catalogName
     CBCCatalogPath = args.CBCCatalogPath
@@ -74,7 +84,7 @@ def main(args):
    
     print("Injection dictionary:",injDict)
     
-    massPrior = getGWTC4MassPrior(cbcType) 
+    massPrior = getGWTC4MassPrior(cbcType)
 
     cnt = 0
     for ids,row in hostDF.iterrows():

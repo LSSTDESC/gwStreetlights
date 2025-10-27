@@ -34,7 +34,7 @@ import os
 priorBasePath = "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/gwtc-like-priors"
 dataDirectory = "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalog_csvs"
 CBCTypes = ["BBH","NSBH"]
-CBCTypes = ["BBH"]
+CBCTypes = ["NSBH"]
 alignmentTypes = ["aligned","precessing"]
 catalogName = "skysim5000_v1.2_small"
 CBCWeights = ["UniformWeight","StellarMassWeight","uWeight","rWeight","yWeight"]
