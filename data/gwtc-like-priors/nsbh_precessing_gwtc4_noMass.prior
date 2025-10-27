@@ -2,22 +2,25 @@
 # Derived from the gwtc 4 paper: https://arxiv.org/pdf/2508.18083
 # Here, source 1 is the BBH, and source 2 is the NS
 
-# Still to do
-# mass_1 = bilby.core.prior.TruncatedGaussian(1.5, 1.1, 0.1, 3, name="mass_1", latex_label="$m_1$", unit=None, boundary=None)
-a_2 = Uniform(name='a_2', minimum=0, maximum=0.99)
-
-# done
-# mass_2 = bilby.core.prior.TruncatedGaussian(1.4, 0.68, 0.1, 3, name="mass_2", latex_label="$m_2$", unit=None, boundary=None) # The NS PEAK model is chosen here
-# mass_ratio = bilby.gw.prior.UniformInComponentsMassRatio(name='mass_ratio',minimum=0.0001,maximum=1) # Assume uniform in component mass ratio
-# chirp_mass = bilby.gw.prior.UniformInComponentsChirpMass(name='chirp_mass', minimum=3, maximum=200) # Assume uniform in components
 a_1 = bilby.core.prior.TruncatedGaussian(0.10001848, 0.30634012, 0, 1, name='a_1')
-dec = Cosine(name='dec') # Assume cosine sensitivity for dec
-ra = Uniform(name='ra', minimum=0, maximum=2 * np.pi, boundary='periodic') # Assume uniform distribution in ra
-luminosity_distance = bilby.gw.prior.UniformSourceFrame(name='luminosity_distance', minimum=1e2, maximum=3e4) # Assume uniform co-moving volume prior
-psi = Uniform(name='psi', minimum=0, maximum=np.pi, boundary='periodic') # Assume polarization angle is uniformly distributed
-theta_jn = Sine(name='theta_jn') # Assume sine prior on J and earth normal
-phase = Uniform(name='phase', minimum=0, maximum=2 * np.pi, boundary='periodic') # Assume uniform distribution between 0 and 2pi
-tilt_1 = Sine(name='tilt_1') # Assume that tilt angle prior is distributed using a sine function
-tilt_2 = Sine(name='tilt_2') # Assume that tilt angle prior is distributed using a sine function
-phi_12 = Uniform(name='phi_12', minimum=0, maximum=2 * np.pi, boundary='periodic') # Assume that the spin azimuthal angle difference is uniformly distributed
-phi_jl = Uniform(name='phi_jl', minimum=0, maximum=2 * np.pi, boundary='periodic') # Assume that the angle between J and L is uniformly distributed
+# Assume a_1 follows the bbh spin distribution
+dec = Cosine(name='dec') 
+# Assume cosine sensitivity for dec
+ra = Uniform(name='ra', minimum=0, maximum=2 * np.pi, boundary='periodic') 
+# Assume uniform distribution in ra
+luminosity_distance = bilby.gw.prior.UniformSourceFrame(name='luminosity_distance', minimum=1e2, maximum=3e4) 
+# Assume uniform co-moving volume prior
+psi = Uniform(name='psi', minimum=0, maximum=np.pi, boundary='periodic') 
+# Assume polarization angle is uniformly distributed
+theta_jn = Sine(name='theta_jn') 
+# Assume sine prior on J and earth normal
+phase = Uniform(name='phase', minimum=0, maximum=2 * np.pi, boundary='periodic') 
+# Assume uniform distribution between 0 and 2pi
+tilt_1 = Sine(name='tilt_1') 
+# Assume that tilt angle prior is distributed using a sine function
+tilt_2 = Sine(name='tilt_2') 
+# Assume that tilt angle prior is distributed using a sine function
+phi_12 = Uniform(name='phi_12', minimum=0, maximum=2 * np.pi, boundary='periodic') 
+# Assume that the spin azimuthal angle difference is uniformly distributed
+phi_jl = Uniform(name='phi_jl', minimum=0, maximum=2 * np.pi, boundary='periodic') 
+# Assume that the angle between J and L is uniformly distributed

@@ -2,19 +2,19 @@
 # Derived from the gwtc 4 paper: https://arxiv.org/pdf/2508.18083
 # Here, source 1 is the BBH, and source 2 is the NS
 
-# Still to do
-mass_1 = bilby.core.prior.TruncatedGaussian(1.5, 1.1, 0.1, 3, name="mass_1", latex_label="$m_1$", unit=None, boundary=None) # Use the analytical, power law + 2 peak 
-chi_2 = bilby.gw.prior.AlignedSpin(name='chi_2', a_prior=Uniform(minimum=0, maximum=0.99)) # The NS spin mag distribution
-
-
-# done
-mass_2 = bilby.core.prior.TruncatedGaussian(1.4, 0.68, 0.1, 3, name="mass_2", latex_label="$m_2$", unit=None, boundary=None) # The NS PEAK model is chosen here, could use power law if desired
-mass_ratio = bilby.gw.prior.UniformInComponentsMassRatio(name='mass_ratio',minimum=0.0001,maximum=1)
-chirp_mass = bilby.gw.prior.UniformInComponentsChirpMass(name='chirp_mass', minimum=3, maximum=200)
 chi_1 = bilby.core.prior.TruncatedGaussian(0.10001848, 0.30634012, 0, 1, name='chi_1')
-dec = Cosine(name='dec') # Assume cosine sensitivity for dec
-ra = Uniform(name='ra', minimum=0, maximum=2 * np.pi, boundary='periodic') # Assume uniform distribution in ra
-luminosity_distance = bilby.gw.prior.UniformSourceFrame(name='luminosity_distance', minimum=1e2, maximum=3e4) # Assume uniform co-moving volume prior
-psi = Uniform(name='psi', minimum=0, maximum=np.pi, boundary='periodic') # Assume polarization angle is uniformly distributed
-theta_jn = Sine(name='theta_jn') # Assume sine prior on J and earth normal
-phase = Uniform(name='phase', minimum=0, maximum=2 * np.pi, boundary='periodic') # Assume uniform distribution between 0 and 2pi
+# The BH spin mag distribution
+chi_2 = Uniform(name='chi_2', minimum=0, maximum=0.99) 
+# The NS spin mag distribution
+dec = Cosine(name='dec') 
+# Assume cosine sensitivity for dec
+ra = Uniform(name='ra', minimum=0, maximum=2 * np.pi, boundary='periodic') 
+# Assume uniform distribution in ra
+luminosity_distance = bilby.gw.prior.UniformSourceFrame(name='luminosity_distance', minimum=1e2, maximum=3e4) 
+# Assume uniform co-moving volume prior
+psi = Uniform(name='psi', minimum=0, maximum=np.pi, boundary='periodic') 
+# Assume polarization angle is uniformly distributed
+theta_jn = Sine(name='theta_jn') 
+# Assume sine prior on J and earth normal
+phase = Uniform(name='phase', minimum=0, maximum=2 * np.pi, boundary='periodic') 
+# Assume uniform distribution between 0 and 2pi
