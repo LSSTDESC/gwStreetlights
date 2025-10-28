@@ -18,7 +18,7 @@ Argument syntax:
 """
 
 basePath = "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalog_csvs/UniformParent,"
-suffix='withCBCParams.csv'
+suffix='withCBCParams_gwtc4.csv'
 outDir = "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/CBCCats/outFiles"
 
 '''
@@ -46,6 +46,7 @@ def priorSelector(alignment,CBCType):
     else:
         print("Something went wrong in the prior selector, inputs were alignment: {}. CBCType: {}".format(alignment,CBCType))
 
+
 cbcWeights = ["UniformWeight","StellarMassWeight","uWeight","rWeight","yWeight"]
 cbcTypes = ["BBH","NSBH"]
 sampNumbers = [300,10]
@@ -58,6 +59,13 @@ sampNumbers = [300]
 signalDurations = [8]
 networkThresholds = [9]
 
+# This is for the NSBH only prompts
+# cbcTypes = ["NSBH"]
+# cbcWeights = ["uWeight","rWeight","yWeight"]
+# sampNumbers = [10]
+# signalDurations = [32]
+# networkThresholds = [8]
+
 for weight in cbcWeights:
     for CBCType,n_samps,duration,network in zip(cbcTypes,sampNumbers,signalDurations,networkThresholds):
         inPath1 = basePath+weight+","+CBCType+","+"aligned"+","+suffix # Aligned
@@ -67,4 +75,4 @@ for weight in cbcWeights:
         out2 = ",".join(inPath2.split(",")[:-1])+",withSNRs_gwtc4"
         prior1 = priorSelector("aligned",CBCType)
         prior2 = priorSelector("precessing",CBCType)
-        print(f"python SNR_sep_downselect.py --csv1 {inPath1} --csv2 {inPath2} --out_csv_1 {out1} --out_csv_2 {out2} --prior_path_one {prior1} --prior_path_two {prior2} --n_samples {n_samps} --network {network} --individual {individual} --duration {duration} &> {outDir}/{weight}_{CBCType}.out --cbc_type {CBCType} &> outFiles/{CBCType}_{weight}_{n_samps}_{duration}_{network}.out &",end="\n\n")
+        print(f"python SNR_sep_downselect.py --csv1 {inPath1} --csv2 {inPath2} --out_csv_1 {out1} --out_csv_2 {out2} --prior_path_one {prior1} --prior_path_two {prior2} --n_samples {n_samps} --network {network} --individual {individual} --duration {duration} --cbc_type {CBCType} &> {outDir}/{weight}_{CBCType}.out &",end="\n\n")
