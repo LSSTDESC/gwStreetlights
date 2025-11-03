@@ -131,15 +131,17 @@ fieldKeys = ["label","outdir","prior-file", "injection-dict","injection-file","w
 for f in files:
     subsampledDF = pd.read_csv(os.path.join(dataDir,f))
     parentWeighting,cbcWeighting,CBCType,alignment,__ = f.split(",")
+    cbcWeightingDir = cbcWeighting.split("Weight")[0]
+    parentWeightingDir = parentWeighting.split("Parent")[0]
+
+# print("cbcWeighting:",cbcWeighting)
 
     toWrite = np.array([])
     labels_snrs_dict = {}
     
-    
-    
 # for b,alignment in zip(batchPaths,alignmentArr):
     # batchDF = pd.read_csv(os.path.join(os.getcwd(),catalogPath,b))
-    batchPath = os.path.join(basePath,"{},{}".format(parentWeighting[:-6],cbcWeighting[:-6]))
+    batchPath = os.path.join(basePath,"{},{}".format(parentWeightingDir,cbcWeightingDir))
     os.makedirs(batchPath,exist_ok=True)
 
     for index,row in subsampledDF.iterrows():
