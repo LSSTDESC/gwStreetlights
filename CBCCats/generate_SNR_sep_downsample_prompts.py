@@ -60,11 +60,11 @@ signalDurations = [8]
 networkThresholds = [9]
 
 # This is for the NSBH only prompts
-# cbcTypes = ["NSBH"]
+cbcTypes = ["NSBH"]
 # cbcWeights = ["uWeight","rWeight","yWeight"]
-# sampNumbers = [10]
-# signalDurations = [32]
-# networkThresholds = [8]
+sampNumbers = [10]
+signalDurations = [32]
+networkThresholds = [8]
 
 for weight in cbcWeights:
     for CBCType,n_samps,duration,network in zip(cbcTypes,sampNumbers,signalDurations,networkThresholds):

@@ -68,6 +68,12 @@ def configureIFOS(cbcT):
     Configure the interferometers as needed. For now, I am leaving these default.
     """
     approximant = getWaveformModel(cbcT)
+    
+    approximant = "IMRPhenomXPHM" 
+    # This is a stupid placeholder for now. 
+    # I don't know how any GW infrastructure is held together.
+    # When all of their waveform models fail when breathed upon.
+    
     ifos = bb.gw.detector.InterferometerList(["H1","V1","L1"])
     sampling_frequency = 2048
     waveform_arguments = dict(waveform_approximant=approximant,  # waveform approximant name
@@ -80,6 +86,7 @@ def makeInjectionDictionary(keys,r):
     Make the injection dictionary for the csv.
     """
     injDict = {}
+    
     for key in keys:
         if key in ("ra","dec"):
             injDict[key] = r["m"+key]
@@ -90,6 +97,66 @@ def makeInjectionDictionary(keys,r):
         gcTime = np.random.normal(0,0.01,size=1)[0]
     injDict["geocent_time"] =gcTime
     return injDict
+
+def lal_binary_black_hole_getArgs(injDict,cbcT):
+    """
+    mass_1: float
+        The mass of the heavier object in solar masses
+    mass_2: float
+        The mass of the lighter object in solar masses
+    luminosity_distance: float
+        The luminosity distance in megaparsec
+    a_1: float
+        Dimensionless primary spin magnitude
+    tilt_1: float
+        Primary tilt angle
+    phi_12: float
+        Azimuthal angle between the two component spins
+    a_2: float
+        Dimensionless secondary spin magnitude
+    tilt_2: float
+        Secondary tilt angle
+    phi_jl: float
+        Azimuthal angle between the total binary angular momentum and the
+        orbital angular momentum
+    theta_jn: float
+        Angle between the total binary angular momentum and the line of sight
+    phase: float
+        The phase at reference frequency or peak amplitude (depends on waveform)
+    kwargs: dict
+        Optional keyword arguments
+        Supported arguments:
+    
+        - waveform_approximant
+        - reference_frequency
+    """
+    args = {}
+
+    args["mass_1"] = injDict["mass_1"]
+    args["mass_2"] = injDict["mass_2"]
+    args["luminosity_distance"] = injDict["luminosity_distance"]
+    args["theta_jn"] = injDict["theta_jn"]
+    args["phase"] = injDict["phase"]
+    args["waveform_approximant"] = getWaveformModel(cbcT)
+    args["reference_frequency"] = 50
+
+    if "a_1" in injDict.keys(): # Precessing spins
+        args["a_1"] = injDict["a_1"]
+        args["a_2"] = injDict["a_2"]
+        args["tilt_1"] = injDict["tilt_1"]
+        args["tilt_2"] = injDict["tilt_2"]
+        args["phi_12"] = injDict["phi_12"]
+        args["phi_jl"] = injDict["phi_jl"]
+    else: # Aligned spins
+        args["a_1"] = injDict["chi_1"]
+        args["a_2"] = injDict["chi_2"]
+        args["tilt_1"] = 0
+        args["tilt_2"] = 0
+        args["phi_12"] = 0
+        args["phi_jl"] = 0
+
+    args["frequency_array"] = np.arange(20,2048,step=0.1)
+    return args
 
 def main(args):
     path1 = args.csv1
@@ -104,10 +171,16 @@ def main(args):
 
     # Randomly split total samples between the two catalogs
     n1 = int(np.random.normal(args.n_samples/2,np.sqrt(args.n_samples)))
-    assert n1>0, "Value for n1 out of range: {} less than 0".format(n1)
-    assert n1<args.n_samples, "Value for n1 out of range ({} greater than {})".format(n1,args.n_samples)
+    while n1<0:
+        print("Value for n1 out of range: {} less than 0. Retrying.".format(n1))
+        n1 = int(np.random.normal(args.n_samples/2,np.sqrt(args.n_samples)))
+    while n1>args.n_samples:
+        print("Value for n1 out of range ({} greater than {}). Retrying".format(n1,args.n_samples))
+        n1 = int(np.random.normal(args.n_samples/2,np.sqrt(args.n_samples)))
     n2 = args.n_samples - n1
-    assert n1+n2==args.n_samples, "{} + {} != {}, something went wrong in the subsample distribution generation".format(n1,n2,args.n_samples)
+    while n1+n2!=args.n_samples:
+        print("{} + {} != {}, something went wrong in the subsample distribution generation. Retrying.".format(n1,n2,args.n_samples))
+        n1 = int(np.random.normal(args.n_samples/2,np.sqrt(args.n_samples)))
     print(f"Drawing {n1} samples from {os.path.basename(args.csv1)} "
           f"and {n2} from {os.path.basename(args.csv2)}")
 
@@ -132,13 +205,24 @@ def main(args):
             # Draw a random row
             row = df.sample(1).iloc[0]
 
+            if cbcType.lower()=="nsbh" and row["mass_ratio"]<0.01:
+                continue # Skip this row...
+
             # Create the injection dictionary for that row
             injDict = makeInjectionDictionary(keys,row)
 
+            lalArgs = lal_binary_black_hole_getArgs(injDict,cbcType)
+
             # Set up the waveform generator
             waveform_generator = bb.gw.waveform_generator.WaveformGenerator(sampling_frequency=sampling_frequency,duration=duration,
-                                                                                       frequency_domain_source_model=ut.get_source_model("BBH"),parameters=injDict,
-                                                                                       waveform_arguments=waveform_arguments,start_time=injDict["geocent_time"]-duration/2)
+                                                                            frequency_domain_source_model=bb.gw.source.lal_binary_black_hole,
+                                                                            parameters=injDict,waveform_arguments=waveform_arguments,start_time=injDict["geocent_time"]-duration/2)
+
+            # waveform_generator = bb.gw.waveform_generator.GWSignalWaveformGenerator(spinning=True,sampling_frequency=sampling_frequency,
+            #                                                                         duration=duration,parameters=injDict,
+            #                                                                         start_time=injDict["geocent_time"]-duration/2,
+            #                                                                         waveform_arguments={"waveform_approximant":"IMRPhenomNSBH"},
+            #                                                                        )
 
             # Set the interferometer strain
             ifos.set_strain_data_from_power_spectral_densities(
