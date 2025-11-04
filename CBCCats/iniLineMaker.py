@@ -120,9 +120,9 @@ alignment = ["precessing","aligned"]
 
 dataDir="/global/u1/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalog_csvs"
 # pd.read_csv()
-msk = [(x.endswith("withSNRs_gwtc4.csv") and (x.__contains__("BBH"))) for x in os.listdir(dataDir)] 
+msk = [(x.endswith("withSNRs_gwtc4.csv") and (x.__contains__("NSBH"))) for x in os.listdir(dataDir)] 
 # To include NSBH's, add an or statement to the second conditional
-files = np.sort(np.array(os.listdir(dataDir))[msk])
+files = np.sort(np.array(os.listdir(dataDir))[msk]) # Only the last two entries, for the y band CBC's
 
 print(f"Relevant files: {files}")
 
