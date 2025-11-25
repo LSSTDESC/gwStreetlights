@@ -11,7 +11,7 @@
 
 # Done
 
-luminosity_distance = bilby.gw.prior.UniformSourceFrame(name='luminosity_distance', minimum=1e1, maximum=3e4) 
+luminosity_distance = bilby.gw.prior.UniformSourceFrame(name='luminosity_distance', minimum=1e1, maximum=7e3) 
 # Select this upper bound since we go out to redshift of z~3 in SkySim5000
 dec = Cosine(name='dec') 
 # Assume a cosine prior on dec

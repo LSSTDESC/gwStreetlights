@@ -8,7 +8,7 @@ mass_ratio = bilby.core.prior.analytical.PowerLaw(1.2, 0.01, 1, name="mass_ratio
 # This is directly from sec 6.2 of https://arxiv.org/pdf/2508.18083
 chirp_mass = bilby.gw.prior.UniformInComponentsChirpMass(name='chirp_mass', minimum=2.5, maximum=350) 
 # Looks good, make sure not to cut off the high chirp mass end
-luminosity_distance = bilby.gw.prior.UniformSourceFrame(name='luminosity_distance', minimum=1e1, maximum=3e4) 
+luminosity_distance = bilby.gw.prior.UniformSourceFrame(name='luminosity_distance', minimum=1e1, maximum=7e3) 
 # Select this upper bound since we go out to redshift of z~3 in SkySim5000
 dec = Cosine(name='dec')
 ra = Uniform(name='ra', minimum=0, maximum=2 * np.pi, boundary='periodic')

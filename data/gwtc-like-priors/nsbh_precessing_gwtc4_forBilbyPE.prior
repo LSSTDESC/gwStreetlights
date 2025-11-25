@@ -18,7 +18,7 @@ dec = Cosine(name='dec')
 # Assume cosine sensitivity for dec
 ra = Uniform(name='ra', minimum=0, maximum=2 * np.pi, boundary='periodic') 
 # Assume uniform distribution in ra
-luminosity_distance = bilby.gw.prior.UniformSourceFrame(name='luminosity_distance', minimum=1e2, maximum=3e4) 
+luminosity_distance = bilby.gw.prior.UniformSourceFrame(name='luminosity_distance', minimum=1e2, maximum=7e3) 
 # Assume uniform co-moving volume prior
 psi = Uniform(name='psi', minimum=0, maximum=np.pi, boundary='periodic') 
 # Assume polarization angle is uniformly distributed
