@@ -69,5 +69,5 @@ if __name__=="__main__":
                 
                 readPath = os.path.join(dataDirectory,f"UniformParent,{cbcweight}.csv")
                 # Takes the form of {parent catalog weighting},{cbc catalog weighting}.csv
-                
+                print()
                 print(prompt(dataDirectory,catalogName,readPath,priorSelector(alignment,cbctype),outFileName))

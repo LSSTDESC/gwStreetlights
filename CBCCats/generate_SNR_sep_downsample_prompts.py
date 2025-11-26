@@ -47,6 +47,8 @@ def priorSelector(alignment,CBCType):
         print("Something went wrong in the prior selector, inputs were alignment: {}. CBCType: {}".format(alignment,CBCType))
 
 
+
+
 cbcWeights = ["UniformWeight","StellarMassWeight","uWeight","rWeight","yWeight"]
 cbcTypes = ["BBH","NSBH"]
 sampNumbers = [300,10]
@@ -55,24 +57,25 @@ networkThresholds = [9,8]
 
 # This is for the BBH only prompts
 cbcTypes = ["BBH"]
-sampNumbers = [300]
+cbcWeights = ["uWeight"]
+sampNumbers = [50] # Modified for testing
 signalDurations = [8]
-networkThresholds = [9]
+networkThresholds = [9] # Modified for testing
 
 # This is for the NSBH only prompts
-cbcTypes = ["NSBH"]
-# cbcWeights = ["uWeight","rWeight","yWeight"]
-sampNumbers = [10]
-signalDurations = [32]
-networkThresholds = [8]
+# cbcTypes = ["NSBH"]
+# # cbcWeights = ["uWeight","rWeight","yWeight"]
+# sampNumbers = [10]
+# signalDurations = [32]
+# networkThresholds = [8]
 
 for weight in cbcWeights:
     for CBCType,n_samps,duration,network in zip(cbcTypes,sampNumbers,signalDurations,networkThresholds):
         inPath1 = basePath+weight+","+CBCType+","+"aligned"+","+suffix # Aligned
         inPath2 = basePath+weight+","+CBCType+","+"precessing"+","+suffix # Precessing
         individual = 2
-        out1 = ",".join(inPath1.split(",")[:-1])+",withSNRs_gwtc4"
-        out2 = ",".join(inPath2.split(",")[:-1])+",withSNRs_gwtc4"
+        out1 = ",".join(inPath1.split(",")[:-1])+",withSNRs_gwtc4_testing_4" # Modified for testing 
+        out2 = ",".join(inPath2.split(",")[:-1])+",withSNRs_gwtc4_testing_4" # Modified for testing 
         prior1 = priorSelector("aligned",CBCType)
         prior2 = priorSelector("precessing",CBCType)
-        print(f"python SNR_sep_downselect.py --csv1 {inPath1} --csv2 {inPath2} --out_csv_1 {out1} --out_csv_2 {out2} --prior_path_one {prior1} --prior_path_two {prior2} --n_samples {n_samps} --network {network} --individual {individual} --duration {duration} --cbc_type {CBCType} &> {outDir}/{weight}_{CBCType}.out &",end="\n\n")
+        print(f"python SNR_sep_downselect.py --csv1 {inPath1} --csv2 {inPath2} --out_csv_1 {out1} --out_csv_2 {out2} --prior_path_one {prior1} --prior_path_two {prior2} --n_samples {n_samps} --network {network} --individual {individual} --duration {duration} --cbc_type {CBCType} &> {outDir}/{weight}_{CBCType}_testing_4.out &",end="\n\n")
