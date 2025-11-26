@@ -50,7 +50,10 @@ def loadPrior(path):
     """
     print("Loading prior from",path)
     prior = bb.gw.prior.ConditionalPriorDict(path) 
-    cbcKeys = prior.sample().keys()
+    cbcKeys = list(prior.sample().keys())
+    for k in ["mass_1","mass_2","mass_ratio","chirp_mass"]:
+        if k not in cbcKeys:
+            cbcKeys.append(k)
     print("Prior keys:",cbcKeys)
     return prior,cbcKeys
 
@@ -132,6 +135,10 @@ def lal_binary_black_hole_getArgs(injDict,cbcT):
     """
     args = {}
 
+    print("Injection dictionary:")
+    for k,v in zip(injDict.keys(),injDict.values()):
+        print(k,v)
+
     args["mass_1"] = injDict["mass_1"]
     args["mass_2"] = injDict["mass_2"]
     args["luminosity_distance"] = injDict["luminosity_distance"]
@@ -206,8 +213,11 @@ def main(args):
             row = df.sample(1).iloc[0]
 
             if cbcType.lower()=="nsbh" and row["mass_ratio"]<0.01:
+                print(f"Mass ratio is too low, skipping ({row['mass_ratio']})")
                 continue # Skip this row...
-
+            if row["luminosity_distance"]>7000:
+                print(f"Luminosity distance of galaxy {row.index} is too high ({row['luminosity_distance']})") # This is a crude solution for now
+                continue # Skip this row
             # Create the injection dictionary for that row
             injDict = makeInjectionDictionary(keys,row)
 
