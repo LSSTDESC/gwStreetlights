@@ -34,7 +34,7 @@ import os
 priorBasePath = "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/gwtc-like-priors"
 dataDirectory = "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalog_csvs"
 CBCTypes = ["BBH","NSBH"]
-CBCTypes = ["NSBH"]
+# CBCTypes = ["BBH"]
 alignmentTypes = ["aligned","precessing"]
 catalogName = "skysim5000_v1.2_small"
 CBCWeights = ["UniformWeight","StellarMassWeight","uWeight","rWeight","yWeight"]
@@ -57,8 +57,8 @@ def priorSelector(alignment,CBCType):
     else:
         print("Something went wrong in the prior selector, inputs were alignment: {}. CBCType: {}".format(alignment,CBCType))
 
-def prompt(datadir,catname,catpath,priorpath,outfile):
-    return f"./MakeBilbySamples.py -d {datadir} -c {catname} -C {catpath} -p {priorpath} -o {outfile} &> outFiles/gwtc4_{cbcweight}_{cbctype}_{alignment}.log &"
+def prompt(datadir,catname,catpath,priorpath,outfile,cbctype,cbcweight,alignment):
+    return f"./MakeBilbySamples.py -d {datadir} -c {catname} -C {catpath} -p {priorpath} -o {outfile} -t {cbctype} &> outFiles/gwtc4_{cbcweight}_{cbctype}_{alignment}.log &"
 
 if __name__=="__main__":
     for cbcweight in CBCWeights:
@@ -70,4 +70,4 @@ if __name__=="__main__":
                 readPath = os.path.join(dataDirectory,f"UniformParent,{cbcweight}.csv")
                 # Takes the form of {parent catalog weighting},{cbc catalog weighting}.csv
                 print()
-                print(prompt(dataDirectory,catalogName,readPath,priorSelector(alignment,cbctype),outFileName))
+                print(prompt(dataDirectory,catalogName,readPath,priorSelector(alignment,cbctype),outFileName,cbctype,cbcweight,alignment))
