@@ -53,7 +53,7 @@ def getMassParamSample(mPrior):
     return m1,m2,q,chrp
 
 def main(args):
-    cbcType = "NSBH"
+    cbcType = args.cbcType
     dataDir = args.dataDir
     cat_name2 = args.catalogName
     CBCCatalogPath = args.CBCCatalogPath
@@ -64,6 +64,8 @@ def main(args):
     skysimCat = GCRCat.load_catalog(cat_name2) # Load the skysim catalog
     cosmology = skysimCat.cosmology
     hostDF = pd.read_csv(CBCCatalogPath) # Load the CBC catalog
+    print("Loading prior:",priorPath)
+    # exit()
     prior = bb.gw.prior.PriorDict(priorPath) # The bbh prior, spins aligned
     
     prior_sampled = prior.sample()
@@ -135,5 +137,7 @@ if __name__=="__main__":
                         help="The path to the prior file.")
     parser.add_argument("-o", "--outFileName", type=str, default="BBHs_0,aligned,sampledOnly.csv",
                         help="The name of the output csv, appended to the dataDir argument.")
+    parser.add_argument("-t", "--cbcType", type=str, default="BBH",
+                        help="The CBC type to be sampled.")
     args = parser.parse_args()
     main(args)
