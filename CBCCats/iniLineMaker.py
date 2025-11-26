@@ -120,12 +120,12 @@ alignment = ["precessing","aligned"]
 
 dataDir="/global/u1/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalog_csvs"
 # pd.read_csv()
-msk = [(x.endswith("withSNRs_gwtc4.csv") and (x.__contains__("NSBH"))) for x in os.listdir(dataDir)] 
+msk = [x.endswith("withSNRs_gwtc4.csv") for x in os.listdir(dataDir)] 
 # To include NSBH's, add an or statement to the second conditional
 files = np.sort(np.array(os.listdir(dataDir))[msk]) # Only the last two entries, for the y band CBC's
 
 print(f"Relevant files: {files}")
-
+exit()
 fieldKeys = ["label","outdir","prior-file", "injection-dict","injection-file","waveform-approximant"]
 
 for f in files:
@@ -169,7 +169,7 @@ for f in files:
 
     # Writing all the .ini files
     for writeables in toWrite:
-        with open("{}_base.ini".format(CBCType), "r") as myf:
+        with open("{}_base_1024.ini".format(CBCType), "r") as myf:
             read = myf.readlines()
     
         writeFile = os.path.join(ini_basepath,writeables[0])+".ini"
@@ -200,4 +200,4 @@ for f in files:
     print("For {}".format(f))
     for r in result:
         print(r,sortedDict[r])
-    print("Finished writing for {}".format(f),end="\n\n")
+    print("Finished writing for {}, written to {}".format(f,batchPath),end="\n\n")
