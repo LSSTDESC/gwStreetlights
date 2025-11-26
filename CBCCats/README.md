@@ -14,6 +14,6 @@ Here we have the code for simulating CBC host catalogs in advance of `bilby_pipe
         -  `SepBilbyBySNR.py`
         -  `Selecting catalogs.ipynb`    
 4.  Read a base `.ini` file associated with a `bilby_pipe` submission, and appends the necessary lines to the file for job submission based on the CBC samples.
-    - `iniLineMaker.ipynb` is the script to do this. 
+    - `iniLineMaker.py` is the script to do this. 
 
 The simulated catalogs are saved in the `~/data/` folder, with a readme detailing the specifics of each catalog
