@@ -90,6 +90,7 @@ def makeInjectionDictionary(keys,r):
     """
     injDict = {}
     
+
     for key in keys:
         if key in ("ra","dec"):
             injDict[key] = r["m"+key]
@@ -178,16 +179,19 @@ def main(args):
 
     # Randomly split total samples between the two catalogs
     n1 = int(np.random.normal(args.n_samples/2,np.sqrt(args.n_samples)))
-    while n1<0:
+    while n1<=0:
         print("Value for n1 out of range: {} less than 0. Retrying.".format(n1))
         n1 = int(np.random.normal(args.n_samples/2,np.sqrt(args.n_samples)))
-    while n1>args.n_samples:
+    while n1>=args.n_samples:
         print("Value for n1 out of range ({} greater than {}). Retrying".format(n1,args.n_samples))
         n1 = int(np.random.normal(args.n_samples/2,np.sqrt(args.n_samples)))
+
     n2 = args.n_samples - n1
     while n1+n2!=args.n_samples:
         print("{} + {} != {}, something went wrong in the subsample distribution generation. Retrying.".format(n1,n2,args.n_samples))
         n1 = int(np.random.normal(args.n_samples/2,np.sqrt(args.n_samples)))
+        n2 = args.n_samples - n1
+   
     print(f"Drawing {n1} samples from {os.path.basename(args.csv1)} "
           f"and {n2} from {os.path.basename(args.csv2)}")
 
@@ -216,7 +220,7 @@ def main(args):
                 print(f"Mass ratio is too low, skipping ({row['mass_ratio']})")
                 continue # Skip this row...
             if row["luminosity_distance"]>7000:
-                print(f"Luminosity distance of galaxy {row.index} is too high ({row['luminosity_distance']})") # This is a crude solution for now
+                print(f"Luminosity distance of galaxy {row['galaxyID']} is too high ({row['luminosity_distance']})") # This is a crude solution for now
                 continue # Skip this row
             # Create the injection dictionary for that row
             injDict = makeInjectionDictionary(keys,row)

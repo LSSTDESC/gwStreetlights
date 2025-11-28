@@ -125,7 +125,6 @@ msk = [x.endswith("withSNRs_gwtc4.csv") for x in os.listdir(dataDir)]
 files = np.sort(np.array(os.listdir(dataDir))[msk]) # Only the last two entries, for the y band CBC's
 
 print(f"Relevant files: {files}")
-exit()
 fieldKeys = ["label","outdir","prior-file", "injection-dict","injection-file","waveform-approximant"]
 
 for f in files:
