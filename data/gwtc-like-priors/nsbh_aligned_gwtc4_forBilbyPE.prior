@@ -2,7 +2,7 @@
 # Derived from the gwtc 4 paper: https://arxiv.org/pdf/2508.18083
 # Here, source 1 is the BBH, and source 2 is the NS
 
-mass_1 = Uniform(minimum=1,maximum=200, name="mass_1", latex_label="$m_1$", unit=None, boundary=None) 
+mass_1 = Uniform(minimum=1,maximum=300, name="mass_1", latex_label="$m_1$", unit=None, boundary=None) 
 # The BH component distribution
 mass_2 = Uniform(minimum=0.1,maximum=5,name="mass_2", latex_label="$m_2$", unit=None, boundary=None) 
 # The NS component distribution

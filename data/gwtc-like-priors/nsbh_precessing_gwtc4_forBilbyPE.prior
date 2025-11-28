@@ -2,13 +2,13 @@
 # Derived from the gwtc 4 paper: https://arxiv.org/pdf/2508.18083
 # Here, source 1 is the BBH, and source 2 is the NS
 
-mass_1 = Uniform(minimum=1, maximum=200, name="mass_1", latex_label="$m_1$", unit=None, boundary=None)
+mass_1 = Uniform(minimum=1, maximum=300, name="mass_1", latex_label="$m_1$", unit=None, boundary=None)
 # BH component mass prior
 mass_2 = Uniform(minimum=0.1, maximum=5, name="mass_2", latex_label="$m_2$", unit=None, boundary=None)
 # NS component mass prior
 mass_ratio = bilby.gw.prior.UniformInComponentsMassRatio(name='mass_ratio',minimum=0.0005,maximum=1) 
 # Assume uniform in component mass ratio
-chirp_mass = bilby.gw.prior.UniformInComponentsChirpMass(name='chirp_mass', minimum=1, maximum=200)
+chirp_mass = bilby.gw.prior.UniformInComponentsChirpMass(name='chirp_mass', minimum=0.1, maximum=200)
 # Assume chirp mass is uniform in component masses
 a_1 = bilby.core.prior.TruncatedGaussian(0.10001848, 0.30634012, 0, 1, name='a_1')
 # Assume a_1 follows the bbh spin distribution

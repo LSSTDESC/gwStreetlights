@@ -4,6 +4,8 @@
 
 a_1 = bilby.core.prior.TruncatedGaussian(0.10001848, 0.30634012, 0, 1, name='a_1')
 # Assume a_1 follows the bbh spin distribution
+a_2 = Uniform(name='a_2', minimum=0, maximum=0.99)
+# Assume a uniform prior for the NS spin distribution
 dec = Cosine(name='dec') 
 # Assume cosine sensitivity for dec
 ra = Uniform(name='ra', minimum=0, maximum=2 * np.pi, boundary='periodic') 
