@@ -120,13 +120,12 @@ alignment = ["precessing","aligned"]
 
 dataDir="/global/u1/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalog_csvs"
 # pd.read_csv()
-msk = [x.endswith("withSNRs_gwtc4.csv") for x in os.listdir(dataDir)] 
+msk = [x.endswith("withSNRs_gwtc4_secondPass.csv") for x in os.listdir(dataDir)] 
 # To include NSBH's, add an or statement to the second conditional
 files = np.sort(np.array(os.listdir(dataDir))[msk]) # Only the last two entries, for the y band CBC's
 
 print(f"Relevant files: {files}")
 fieldKeys = ["label","outdir","prior-file", "injection-dict","injection-file","waveform-approximant"]
-
 for f in files:
     subsampledDF = pd.read_csv(os.path.join(dataDir,f))
     parentWeighting,cbcWeighting,CBCType,alignment,__ = f.split(",")
@@ -146,7 +145,7 @@ for f in files:
     for index,row in subsampledDF.iterrows():
         fullItem = "{}_{}".format(CBCType,index)
         # spin=alignment # Choose spins to be aligned (1) or misaligned (0)
-        label = makeLabel(parentWeighting+","+cbcWeighting,fullItem,alignment)
+        label = makeLabel(parentWeighting+","+cbcWeighting,fullItem+"_secondpass",alignment)
         outDir = makeOutDir(batchPath,label)
         priorPath = makePriorFilePath(CBCType,getSpinFromName(alignment))
         injKeys = getInjection_keys(CBCType,getSpinFromName(alignment),priorPath)

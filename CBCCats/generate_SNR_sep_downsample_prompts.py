@@ -56,11 +56,11 @@ signalDurations = [8,32]
 networkThresholds = [9,8]
 
 # This is for the BBH only prompts
-# cbcTypes = ["BBH"]
-# cbcWeights = ["uWeight"]
-# sampNumbers = [50] # Modified for testing
-# signalDurations = [8]
-# networkThresholds = [9] # Modified for testing
+cbcTypes = ["BBH"]
+cbcWeights = ["UniformWeight","StellarMassWeight","uWeight","rWeight"]
+sampNumbers = [100] # Modified for testing
+signalDurations = [8]
+networkThresholds = [9] # Modified for testing
 
 # This is for the NSBH only prompts
 # cbcTypes = ["NSBH"]
@@ -74,8 +74,8 @@ for weight in cbcWeights:
         inPath1 = basePath+weight+","+CBCType+","+"aligned"+","+suffix # Aligned
         inPath2 = basePath+weight+","+CBCType+","+"precessing"+","+suffix # Precessing
         individual = 2
-        out1 = ",".join(inPath1.split(",")[:-1])+",withSNRs_gwtc4" 
-        out2 = ",".join(inPath2.split(",")[:-1])+",withSNRs_gwtc4" 
+        out1 = ",".join(inPath1.split(",")[:-1])+",withSNRs_gwtc4_secondPass" 
+        out2 = ",".join(inPath2.split(",")[:-1])+",withSNRs_gwtc4_secondPass" 
         prior1 = priorSelector("aligned",CBCType)
         prior2 = priorSelector("precessing",CBCType)
-        print(f"python SNR_sep_downselect.py --csv1 {inPath1} --csv2 {inPath2} --out_csv_1 {out1} --out_csv_2 {out2} --prior_path_one {prior1} --prior_path_two {prior2} --n_samples {n_samps} --network {network} --individual {individual} --duration {duration} --cbc_type {CBCType} &> {outDir}/{weight}_{CBCType}.out &",end="\n\n")
+        print(f"python SNR_sep_downselect.py --csv1 {inPath1} --csv2 {inPath2} --out_csv_1 {out1} --out_csv_2 {out2} --prior_path_one {prior1} --prior_path_two {prior2} --n_samples {n_samps} --network {network} --individual {individual} --duration {duration} --cbc_type {CBCType} &> {outDir}/{weight}_{CBCType}_secondPass.out &",end="\n\n")
