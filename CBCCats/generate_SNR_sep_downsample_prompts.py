@@ -57,17 +57,17 @@ networkThresholds = [9,8]
 
 # This is for the BBH only prompts
 cbcTypes = ["BBH"]
-cbcWeights = ["UniformWeight","StellarMassWeight","uWeight","rWeight"]
-sampNumbers = [100] # Modified for testing
+# cbcWeights = ["yWeight"]
+sampNumbers = [50] # Modified for testing
 signalDurations = [8]
 networkThresholds = [9] # Modified for testing
 
 # This is for the NSBH only prompts
-# cbcTypes = ["NSBH"]
-# # cbcWeights = ["uWeight","rWeight","yWeight"]
-# sampNumbers = [10]
-# signalDurations = [32]
-# networkThresholds = [8]
+cbcTypes = ["NSBH"]
+# cbcWeights = ["uWeight","rWeight","yWeight"]
+sampNumbers = [10]
+signalDurations = [32]
+networkThresholds = [9]
 
 for weight in cbcWeights:
     for CBCType,n_samps,duration,network in zip(cbcTypes,sampNumbers,signalDurations,networkThresholds):

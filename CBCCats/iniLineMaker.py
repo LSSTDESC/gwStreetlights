@@ -44,14 +44,20 @@ def makeLabel(batch,item,spin):
 def makeOutDir(base,spec):
     return os.path.join(base,spec)
 
-def getWaveformModel(typ):
+def getWaveformModel(typ,spin=0):
     if typ not in ("BBH","NSBH"):
         raise ValueError("{} is not one of supported types: ('BBH','NSBH')".format(typ))
         return -1
     if typ=="BBH":
         return "IMRPhenomXPHM"
     else:
-        return "IMRPhenomNSBH"
+        if spin==0:
+            return "IMRPhenomXPHM-SpinTaylor"
+        elif spin==1:
+            return "IMRPhenomXHM"
+        else:
+            print(f"Spin was not defined correctly: spin={spin}")
+            return -1
 
 def makePriorFilePath(typ,spin):
     if typ not in ("BBH","NSBH"):
@@ -120,11 +126,12 @@ alignment = ["precessing","aligned"]
 
 dataDir="/global/u1/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalog_csvs"
 # pd.read_csv()
-msk = [x.endswith("withSNRs_gwtc4_secondPass.csv") for x in os.listdir(dataDir)] 
+msk = [(x.endswith("withSNRs_gwtc4_thirdPass.csv") and x.__contains__("BBH")) or (x.endswith("withSNRs_gwtc4_secondPass.csv") and x.__contains__("NSBH")) for x in os.listdir(dataDir)] 
 # To include NSBH's, add an or statement to the second conditional
 files = np.sort(np.array(os.listdir(dataDir))[msk]) # Only the last two entries, for the y band CBC's
 
 print(f"Relevant files: {files}")
+
 fieldKeys = ["label","outdir","prior-file", "injection-dict","injection-file","waveform-approximant"]
 for f in files:
     subsampledDF = pd.read_csv(os.path.join(dataDir,f))
@@ -145,13 +152,20 @@ for f in files:
     for index,row in subsampledDF.iterrows():
         fullItem = "{}_{}".format(CBCType,index)
         # spin=alignment # Choose spins to be aligned (1) or misaligned (0)
-        label = makeLabel(parentWeighting+","+cbcWeighting,fullItem+"_secondpass",alignment)
+        #label = makeLabel(parentWeighting+","+cbcWeighting,fullItem,alignment)
+        if CBCType=="BBH":
+            _pass = "_thirdPass"
+        elif CBCType=="NSBH":
+            _pass = "_secondPass"
+        else:
+            raise ValueError(f"CBCType ({CBCType}) is not one of the accepted types")
+        label = makeLabel(parentWeighting+","+cbcWeighting,fullItem+_pass,alignment)
         outDir = makeOutDir(batchPath,label)
         priorPath = makePriorFilePath(CBCType,getSpinFromName(alignment))
         injKeys = getInjection_keys(CBCType,getSpinFromName(alignment),priorPath)
         injDict = makeInjection_dict(injKeys,row)        
         injectionFPath = getInjectionFilePath(batchPath,label)
-        wfModel = getWaveformModel(CBCType)
+        wfModel = getWaveformModel(CBCType,getSpinFromName(alignment))
 
         labels_snrs_dict[label] = row["Network SNR"]
 
