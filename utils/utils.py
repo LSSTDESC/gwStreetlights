@@ -6,6 +6,56 @@ import matplotlib.pyplot as plt
 import os
 import re
 import healpy as hp
+from astropy.cosmology.units import redshift_distance
+import astropy.units as u
+from astropy.cosmology import FlatLambdaCDM
+import astropy.cosmology.units as cu
+
+def transmute_redshift(inputRedshift,inputCosmology,alternate_h=0.5):
+    """
+    Re-map redshifts under an alternative Hubble constant via luminosity-distance
+    invariance.
+
+    This function transforms an array of input redshifts defined in an original
+    cosmology into their corresponding redshifts in a new, flat ΛCDM cosmology
+    with a modified Hubble constant. The transformation preserves luminosity
+    distance: objects are assigned the redshift they would have in the new
+    cosmology such that their luminosity distance remains unchanged.
+
+    Parameters
+    ----------
+    inputRedshift : array_like
+        Array of redshifts defined in the original cosmology.
+    inputCosmology : astropy.cosmology.Cosmology
+        The reference cosmology used to define the original redshift–distance
+        relation.
+    alternate_h : float, optional
+        Dimensionless Hubble parameter ``h`` of the alternate cosmology,
+        where ``H0 = 100 * h km s⁻¹ Mpc⁻¹``. Default is 0.5.
+
+    Returns
+    -------
+    ndarray
+        Array of redshifts in the alternate cosmology corresponding to the same
+        luminosity distances as the input redshifts in the original cosmology.
+
+    Notes
+    -----
+    Internally, the function computes luminosity distances in the alternate
+    cosmology and then converts them back into redshifts using an equivalency
+    based on ``cu.redshift_distance``. This effectively performs an implicit
+    inversion of the distance–redshift relation while holding luminosity
+    distance fixed.
+    """
+    inputRedshift_units = inputRedshift * cu.redshift
+    
+    newCosmologyParams = inputCosmology.parameters
+    newCosmologyParams["H0"] = alternate_h* 100 * u.km/(u.Mpc * u.s)
+    newCosmology = FlatLambdaCDM(name="skySimCopy",**newCosmologyParams)
+
+    newLuminosityDistances = newCosmology.luminosity_distance(inputRedshift_units)
+    
+    return newLuminosityDistances.to(cu.redshift, cu.redshift_distance(newCosmology, kind="luminosity", zmax=5))
 
 def mag_log_normal_dist(sigma,num_pix):
     """
