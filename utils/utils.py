@@ -108,7 +108,65 @@ def perBand_mag_distribution(LSST_bands,limitingMags,sigma,nside):
         band_limit_max_arrs[band] = max_counts
     return band_limit_arrs,band_limit_min_arrs,band_limit_max_arrs
 
+def trueZ_to_specZ(true_z,year):
+    """
+    Convert true redshifts to spectroscopic redshift realizations.
+
+    This function is intended to generate mock spectroscopic redshift
+    measurements by perturbing true redshifts with a Gaussian error model
+    whose width decreases with survey duration. The scatter is assumed to
+    scale as (1 + z) and improves with total observing time following a
+    sqrt(time) relation.
+
+    Parameters
+    ----------
+    true_z : array_like
+        Array of true (cosmological) redshifts.
+    year : float
+        Effective survey duration in years used to scale the redshift
+        uncertainty.
+
+    Returns
+    -------
+    ndarray
+        Array of spectroscopic redshift realizations.
+
+    Notes
+    -----
+    This function is currently **not implemented** and will raise a
+    ``ValueError`` when called. It exists as a placeholder for future
+    spectroscopic error modeling.
+    """
+    time_term = np.sqrt(10/year)
+    z_adjust = np.random.normal(loc=true_z,scale=prefactor*(1+true_z)*time_term,size=len(true_z))
+    raise ValueError("Not yet implemented")
+    return None
+
 def trueZ_to_photoZ(true_z,year,modeled=False):
+    """
+    Convert true redshifts to photometric redshift realizations.
+
+    This function generates mock photometric redshifts by applying Gaussian
+    scatter to the true redshift distribution. The scatter scales with
+    (1 + z) and improves with survey duration as sqrt(10 / year). Two noise
+    regimes are supported: a nominal photometric error model and an idealized
+    "modeled" case with reduced scatter.
+
+    Parameters
+    ----------
+    true_z : array_like
+        Array of true (cosmological) redshifts.
+    year : float
+        Effective survey duration in years.
+    modeled : bool, optional
+        If True, use a reduced photometric error model (prefactor = 0.01).
+        If False, use a nominal LSST-like photometric scatter (prefactor = 0.04).
+
+    Returns
+    -------
+    ndarray
+        Array of photometric redshift realizations.
+    """
     if modeled:
         prefactor=0.01
     else:
@@ -119,6 +177,43 @@ def trueZ_to_photoZ(true_z,year,modeled=False):
 
 def GCR_filter_overlord(year, LSST_bands,e_dict,v_dict,airmass=1.2,
                         z_max=1.2,z_min=None,mag_scatter=0.15,nside=128):
+    """
+    Construct a complete set of magnitude and redshift selection filters for
+    GCRCatalog-style mock survey queries.
+
+    This function orchestrates the construction of spatially varying magnitude
+    depth maps, applies band-dependent limiting magnitude cuts, and appends
+    global redshift constraints. The resulting filters can be directly passed
+    to GCRCatalog query methods to emulate LSST-like survey selection effects.
+
+    Parameters
+    ----------
+    year : float
+        Effective survey duration in years.
+    LSST_bands : iterable of str
+        LSST band identifiers (e.g., ``["u", "g", "r", "i", "z", "y"]``).
+    e_dict : dict
+        Per-band exposure scaling factors.
+    v_dict : dict
+        Per-band visit or cadence scaling factors.
+    airmass : float, optional
+        Assumed observing airmass for depth calculations.
+    z_max : float, optional
+        Maximum allowed true redshift.
+    z_min : float, optional
+        Optional minimum allowed true redshift.
+    mag_scatter : float, optional
+        Log-normal scatter amplitude used to model spatial depth variations.
+    nside : int, optional
+        HEALPix NSIDE parameter defining sky map resolution.
+
+    Returns
+    -------
+    filters : list of str
+        List of GCR-compatible filter expressions.
+    band_limit_dict : dict
+        Dictionary mapping each band to its per-pixel limiting magnitude map.
+    """
     
     # The magnitude limiting cut
     limiting_mags = GCR_mag_filter_from_year(year, LSST_bands,e_dict,v_dict,airmass)
@@ -136,12 +231,54 @@ def GCR_filter_overlord(year, LSST_bands,e_dict,v_dict,airmass=1.2,
     return filters,band_limit_dict
 
 def GCR_redshift_filter(filt,z_max,z_min=None):
+    """
+    Append redshift selection cuts to an existing filter list.
+
+    Parameters
+    ----------
+    filt : list of str
+        Existing list of GCR-compatible filter expressions.
+    z_max : float
+        Maximum allowed true redshift.
+    z_min : float, optional
+        Minimum allowed true redshift.
+
+    Returns
+    -------
+    list of str
+        Updated filter list including the redshift cuts.
+    """
     filt.append(f"redshift_true<{z_max}")
     if z_min!=None:
         filt.append(f"redshift_true>{z_min}")
     return filt
 
 def GCR_mag_filter_from_year(year, LSST_bands,e_dict,v_dict,airmass=1.2):
+    """
+    Compute per-band limiting magnitudes for an LSST-like survey realization.
+
+    This function calculates band-dependent limiting magnitudes using the
+    LSST photometric depth prescription, scaling the effective exposure time
+    by survey duration and per-band cadence/exposure factors.
+
+    Parameters
+    ----------
+    year : float
+        Effective survey duration in years.
+    LSST_bands : iterable of str
+        Iterable of LSST band identifiers.
+    e_dict : dict
+        Dictionary mapping each band to its exposure scaling factor.
+    v_dict : dict
+        Dictionary mapping each band to its visit or cadence scaling factor.
+    airmass : float, optional
+        Assumed observing airmass.
+
+    Returns
+    -------
+    dict
+        Dictionary mapping each band to its limiting magnitude.
+    """
     limiting_mags = {}
     for band in LSST_bands:
         C_m,m_sky,theta_eff,k_m = getLSSTBandParameters(band)
