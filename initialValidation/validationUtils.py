@@ -2,10 +2,11 @@ import json
 import h5py
 import os
 
+
 def rewriteJson(path):
     """
     A function to take a json file and convert it to an h5 file
-    
+
     Inputs
     ------
     path: Full path to json file
@@ -25,15 +26,16 @@ def rewriteJson(path):
     # Isolate base path
     basePath = "/"
     for part in path.split("/")[:-1]:
-        basePath = os.path.join(basePath,part)
+        basePath = os.path.join(basePath, part)
 
-    h5Path = os.path.join(basePath,fname+".h5")
+    h5Path = os.path.join(basePath, fname + ".h5")
     # Create HDF5 file
     with h5py.File(h5Path, "w") as h5file:
         # Previously, recursively_save_dict_contents was defined here
-    
+
         recursively_save_dict_contents(h5file, data)
     return h5Path
+
 
 def recursively_save_dict_contents(h5group, dict_data):
     for key, value in dict_data.items():
