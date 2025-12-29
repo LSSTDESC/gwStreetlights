@@ -11,7 +11,160 @@ import astropy.units as u
 from astropy.cosmology import FlatLambdaCDM
 import astropy.cosmology.units as cu
 
-def transmute_redshift(inputRedshift,inputCosmology,alternate_h=0.5):
+def getHp_band_dict(hp_ids,lsst_bands,sigma,nside):
+    """
+    Construct per-Healpix, per-band limiting magnitude dictionaries.
+
+    This function generates spatially varying limiting magnitudes across the sky
+    by perturbing fiducial limiting magnitudes with a median-centered, negative
+    log-normal random field, and then associates the resulting per-pixel limits
+    with the Healpix indices actually present in a catalog.
+
+    Parameters
+    ----------
+    hp_ids : array_like
+        Array of Healpix pixel indices corresponding to objects in the catalog.
+    lsst_bands : iterable of str
+        LSST band identifiers (e.g., ``["u", "g", "r", "i", "z", "y"]``).
+    sigma : float
+        Log-normal scatter amplitude used to generate depth perturbations.
+    nside : int
+        Healpix NSIDE parameter defining sky map resolution.
+
+    Returns
+    -------
+    dict
+        Dictionary mapping each unique Healpix index to a dictionary of per-band
+        limiting magnitudes, e.g. ``{hp_ind: {band: m_lim_band, ...}, ...}``.
+
+    Notes
+    -----
+    This function assumes that a global dictionary ``limiting_mags`` exists in
+    scope and provides the fiducial limiting magnitude for each band.
+    """
+    realistic_mags_hp_matched = {} # Instantiate the dictionary
+    uniq_hp_ids = np.sort(np.unique(hp_ids) # Get the unique hp indices
+    for band in lsst_bands: # iterate over bands
+        realistic_mags = limiting_mags[band]+getMagLimitAdjustment(sigma,nside) # 
+        realistic_mags_hp_matched[band] = realistic_mags[uniq_hp_ids]
+    hp_band_dict = {} # Instantiate the dictionary
+    count = 0 # Start count at zero
+    for uniq_hp_id,count in zip(uniq_hp_ids,range(len(uniq_hp_ids))):
+        band_mag_dict = {} # Instantiate the dictionary
+        for band in lsst_bands: # iterate over bands
+            band_mag_dict[band] = realistic_mags_hp_matched[band][count] # populate dict
+        hp_band_dict[uniq_hp_id] = band_mag_dict # populate dict
+        count+=1 # Iterate count
+    return hp_band_dict # Return populated dictionary
+
+def dropFaintGalaxies(data,uniq_hp_indices,lsst_bands,hp_band_dictionary,hp_ind_label="hp_ind_nside128"):
+    """
+    Apply spatially varying magnitude cuts to a galaxy catalog.
+
+    This function removes objects from a catalog that are fainter than the
+    local (Healpix-dependent) limiting magnitude in any LSST band. It enforces
+    depth variations across the sky by comparing each object's true magnitude
+    to the per-pixel limiting magnitudes stored in ``hp_band_dictionary``.
+
+    Parameters
+    ----------
+    data : pandas.DataFrame
+        Catalog containing true LSST-band magnitudes and Healpix pixel indices.
+    uniq_hp_indices : array_like
+        Unique Healpix indices to be processed.
+    lsst_bands : iterable of str
+        LSST band identifiers.
+    hp_band_dictionary : dict
+        Dictionary mapping Healpix indices to per-band limiting magnitudes,
+        as produced by ``getHp_band_dict``.
+    hp_ind_label : str, optional
+        Column name in ``data`` containing Healpix indices. Default is
+        ``"hp_ind_nside128"``.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Filtered catalog with all objects fainter than the local depth limit
+        removed.
+    """
+    for ind in uniq_hp_indices: # For each healpix index
+        hp_data = data[data[hp_ind_label]==ind] # Subset of data, here for the healpix specified
+        dropIndices = np.array([]) # Instantiate dropIndex array
+        for band in lsst_bands: # Iterate over bands
+            bool_index = hp_data[f"mag_true_{band}_lsst_no_host_extinction"] > hp_band_dictionary[ind][band] # Set the magnitude limit
+            dropIndices = np.append(dropIndices,data[data[hp_ind_label]==ind][f"mag_true_{band}_lsst_no_host_extinction"][bool_index].index) # Append qualifying indices to array
+        data = data.drop(dropIndices,axis=0) # Drop rows in dataframe
+    return data
+
+def RaDecToIndex(RA,decl,nside):
+    """
+    Convert equatorial coordinates to Healpix pixel indices.
+
+    Parameters
+    ----------
+    RA : array_like
+        Right ascension in degrees.
+    decl : array_like
+        Declination in degrees.
+    nside : int
+        Healpix NSIDE parameter.
+
+    Returns
+    -------
+    ndarray
+        Healpix pixel indices corresponding to the input coordinates.
+
+    Notes
+    -----
+    This uses the HEALPix ``ang2pix`` convention with colatitude defined as
+    ``theta = -decl + 90°`` and longitude ``phi = 360° - RA``.
+    """
+    return hp.ang2pix(nside,np.radians(-decl+90.),np.radians(360.-RA))
+
+def getMagLimArr(nside,lim):
+    """
+    Create a full-sky Healpix map of constant limiting magnitude.
+
+    Parameters
+    ----------
+    nside : int
+        Healpix NSIDE parameter.
+    lim : float
+        Limiting magnitude to assign to every Healpix pixel.
+
+    Returns
+    -------
+    ndarray
+        Array of length ``hp.nside2npix(nside)`` filled with ``lim``.
+    """
+    return np.full(hp.nside2npix(nside),lim)
+
+def getMagLimitAdjustment(sig,nside):
+    """
+    Generate a median-centered, negative log-normal magnitude perturbation map.
+
+    This function produces a Healpix-resolution random field that models
+    spatial variations in survey depth. The distribution is skewed toward
+    negative values, representing localized depth degradation.
+
+    Parameters
+    ----------
+    sig : float
+        Log-normal scatter amplitude.
+    nside : int
+        Healpix NSIDE parameter.
+
+    Returns
+    -------
+    ndarray
+        Array of length ``hp.nside2npix(nside)`` containing per-pixel magnitude
+        adjustments whose median is zero.
+    """
+    counts = -np.random.lognormal(mean=0,sigma=sig,size=hp.nside2npix(nside))
+    counts -= np.median(counts)
+    return counts
+
+def transmute_redshift(inputRedshift,inputCosmology,alternate_h=0.5,z_max=5):
     """
     Re-map redshifts under an alternative Hubble constant via luminosity-distance
     invariance.
@@ -48,14 +201,17 @@ def transmute_redshift(inputRedshift,inputCosmology,alternate_h=0.5):
     distance fixed.
     """
     inputRedshift_units = inputRedshift * cu.redshift
+    d_L = inputCosmology.luminosity_distance(inputRedshift_units)
     
-    newCosmologyParams = inputCosmology.parameters
+    newCosmologyParams = dict(inputCosmology.parameters)
     newCosmologyParams["H0"] = alternate_h* 100 * u.km/(u.Mpc * u.s)
     newCosmology = FlatLambdaCDM(name="skySimCopy",**newCosmologyParams)
 
-    newLuminosityDistances = newCosmology.luminosity_distance(inputRedshift_units)
+    # newLuminosityDistances = newCosmology.luminosity_distance(inputRedshift_units)
     
-    return newLuminosityDistances.to(cu.redshift, cu.redshift_distance(newCosmology, kind="luminosity", zmax=5))
+    return d_L.to(cu.redshift, cu.redshift_distance(newCosmology, kind="luminosity",zmax=zmax))
+    
+    # newLuminosityDistances.to(cu.redshift, cu.redshift_distance(newCosmology, kind="luminosity", zmax=5))
 
 def mag_log_normal_dist(sigma,num_pix):
     """
