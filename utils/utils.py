@@ -11,7 +11,8 @@ import astropy.units as u
 from astropy.cosmology import FlatLambdaCDM
 import astropy.cosmology.units as cu
 
-def getHp_band_dict(hp_ids,lsst_bands,sigma,nside,limiting_mags):
+
+def getHp_band_dict(hp_ids, lsst_bands, sigma, nside, limiting_mags):
     """
     Construct per-Healpix, per-band limiting magnitude dictionaries.
 
@@ -44,22 +45,31 @@ def getHp_band_dict(hp_ids,lsst_bands,sigma,nside,limiting_mags):
     This function assumes that a global dictionary ``limiting_mags`` exists in
     scope and provides the fiducial limiting magnitude for each band.
     """
-    realistic_mags_hp_matched = {} # Instantiate the dictionary
-    uniq_hp_ids = np.sort(np.unique(hp_ids)) # Get the unique hp indices
-    for band in lsst_bands: # iterate over bands
-        realistic_mags = limiting_mags[band]+getMagLimitAdjustment(sigma,nside) # 
+    realistic_mags_hp_matched = {}  # Instantiate the dictionary
+    uniq_hp_ids = np.sort(np.unique(hp_ids))  # Get the unique hp indices
+    for band in lsst_bands:  # iterate over bands
+        realistic_mags = limiting_mags[band] + getMagLimitAdjustment(sigma, nside)  #
         realistic_mags_hp_matched[band] = realistic_mags[uniq_hp_ids]
-    hp_band_dict = {} # Instantiate the dictionary
-    count = 0 # Start count at zero
-    for uniq_hp_id,count in zip(uniq_hp_ids,range(len(uniq_hp_ids))):
-        band_mag_dict = {} # Instantiate the dictionary
-        for band in lsst_bands: # iterate over bands
-            band_mag_dict[band] = realistic_mags_hp_matched[band][count] # populate dict
-        hp_band_dict[uniq_hp_id] = band_mag_dict # populate dict
-        count+=1 # Iterate count
-    return hp_band_dict # Return populated dictionary
+    hp_band_dict = {}  # Instantiate the dictionary
+    count = 0  # Start count at zero
+    for uniq_hp_id, count in zip(uniq_hp_ids, range(len(uniq_hp_ids))):
+        band_mag_dict = {}  # Instantiate the dictionary
+        for band in lsst_bands:  # iterate over bands
+            band_mag_dict[band] = realistic_mags_hp_matched[band][
+                count
+            ]  # populate dict
+        hp_band_dict[uniq_hp_id] = band_mag_dict  # populate dict
+        count += 1  # Iterate count
+    return hp_band_dict  # Return populated dictionary
 
-def dropFaintGalaxies(data,uniq_hp_indices,lsst_bands,hp_band_dictionary,hp_ind_label="hp_ind_nside128"):
+
+def dropFaintGalaxies(
+    data,
+    uniq_hp_indices,
+    lsst_bands,
+    hp_band_dictionary,
+    hp_ind_label="hp_ind_nside128",
+):
     """
     Apply spatially varying magnitude cuts to a galaxy catalog.
 
@@ -89,16 +99,27 @@ def dropFaintGalaxies(data,uniq_hp_indices,lsst_bands,hp_band_dictionary,hp_ind_
         Filtered catalog with all objects fainter than the local depth limit
         removed.
     """
-    for ind in uniq_hp_indices: # For each healpix index
-        hp_data = data[data[hp_ind_label]==ind] # Subset of data, here for the healpix specified
-        dropIndices = np.array([]) # Instantiate dropIndex array
-        for band in lsst_bands: # Iterate over bands
-            bool_index = hp_data[f"mag_true_{band}_lsst_no_host_extinction"] > hp_band_dictionary[ind][band] # Set the magnitude limit
-            dropIndices = np.append(dropIndices,data[data[hp_ind_label]==ind][f"mag_true_{band}_lsst_no_host_extinction"][bool_index].index) # Append qualifying indices to array
-        data = data.drop(dropIndices,axis=0) # Drop rows in dataframe
+    for ind in uniq_hp_indices:  # For each healpix index
+        hp_data = data[
+            data[hp_ind_label] == ind
+        ]  # Subset of data, here for the healpix specified
+        dropIndices = np.array([])  # Instantiate dropIndex array
+        for band in lsst_bands:  # Iterate over bands
+            bool_index = (
+                hp_data[f"mag_true_{band}_lsst_no_host_extinction"]
+                > hp_band_dictionary[ind][band]
+            )  # Set the magnitude limit
+            dropIndices = np.append(
+                dropIndices,
+                data[data[hp_ind_label] == ind][
+                    f"mag_true_{band}_lsst_no_host_extinction"
+                ][bool_index].index,
+            )  # Append qualifying indices to array
+        data = data.drop(dropIndices, axis=0)  # Drop rows in dataframe
     return data
 
-def RaDecToIndex(RA,decl,nside):
+
+def RaDecToIndex(RA, decl, nside):
     """
     Convert equatorial coordinates to Healpix pixel indices.
 
@@ -121,9 +142,10 @@ def RaDecToIndex(RA,decl,nside):
     This uses the HEALPix ``ang2pix`` convention with colatitude defined as
     ``theta = -decl + 90°`` and longitude ``phi = 360° - RA``.
     """
-    return hp.ang2pix(nside,np.radians(-decl+90.),np.radians(360.-RA))
+    return hp.ang2pix(nside, np.radians(-decl + 90.0), np.radians(360.0 - RA))
 
-def getMagLimArr(nside,lim):
+
+def getMagLimArr(nside, lim):
     """
     Create a full-sky Healpix map of constant limiting magnitude.
 
@@ -139,9 +161,10 @@ def getMagLimArr(nside,lim):
     ndarray
         Array of length ``hp.nside2npix(nside)`` filled with ``lim``.
     """
-    return np.full(hp.nside2npix(nside),lim)
+    return np.full(hp.nside2npix(nside), lim)
 
-def getMagLimitAdjustment(sig,nside):
+
+def getMagLimitAdjustment(sig, nside):
     """
     Generate a median-centered, negative log-normal magnitude perturbation map.
 
@@ -162,11 +185,12 @@ def getMagLimitAdjustment(sig,nside):
         Array of length ``hp.nside2npix(nside)`` containing per-pixel magnitude
         adjustments whose median is zero.
     """
-    counts = -np.random.lognormal(mean=0,sigma=sig,size=hp.nside2npix(nside))
+    counts = -np.random.lognormal(mean=0, sigma=sig, size=hp.nside2npix(nside))
     counts -= np.median(counts)
     return counts
 
-def transmute_redshift(inputRedshift,inputCosmology,alternate_h=0.5,zmax=5):
+
+def transmute_redshift(inputRedshift, inputCosmology, alternate_h=0.5, zmax=5):
     """
     Re-map redshifts under an alternative Hubble constant via luminosity-distance
     invariance.
@@ -204,18 +228,21 @@ def transmute_redshift(inputRedshift,inputCosmology,alternate_h=0.5,zmax=5):
     """
     inputRedshift_units = inputRedshift * cu.redshift
     d_L = inputCosmology.luminosity_distance(inputRedshift_units)
-    
+
     newCosmologyParams = dict(inputCosmology.parameters)
-    newCosmologyParams["H0"] = alternate_h* 100 * u.km/(u.Mpc * u.s)
-    newCosmology = FlatLambdaCDM(name="skySimCopy",**newCosmologyParams)
+    newCosmologyParams["H0"] = alternate_h * 100 * u.km / (u.Mpc * u.s)
+    newCosmology = FlatLambdaCDM(name="skySimCopy", **newCosmologyParams)
 
     # newLuminosityDistances = newCosmology.luminosity_distance(inputRedshift_units)
-    
-    return d_L.to(cu.redshift, cu.redshift_distance(newCosmology, kind="luminosity",zmax=zmax))
-    
+
+    return d_L.to(
+        cu.redshift, cu.redshift_distance(newCosmology, kind="luminosity", zmax=zmax)
+    )
+
     # newLuminosityDistances.to(cu.redshift, cu.redshift_distance(newCosmology, kind="luminosity", zmax=5))
 
-def mag_log_normal_dist(sigma,num_pix):
+
+def mag_log_normal_dist(sigma, num_pix):
     """
     Generate a median-centered negative log-normal random field.
 
@@ -258,11 +285,12 @@ def mag_log_normal_dist(sigma,num_pix):
     which guarantees that ``median(counts) = 0`` and that the distribution
     remains skewed toward negative values.
     """
-    counts = -np.random.lognormal(mean=0,sigma=sigma,size=num_pix)
+    counts = -np.random.lognormal(mean=0, sigma=sigma, size=num_pix)
     counts -= np.median(counts)
-    return counts,np.min(counts),np.max(counts)
+    return counts, np.min(counts), np.max(counts)
 
-def perBand_mag_distribution(LSST_bands,limitingMags,sigma,nside):
+
+def perBand_mag_distribution(LSST_bands, limitingMags, sigma, nside):
     """
     Generate per-band, per-pixel limiting magnitude maps with log-normal scatter.
 
@@ -310,13 +338,14 @@ def perBand_mag_distribution(LSST_bands,limitingMags,sigma,nside):
     band_limit_max_arrs = {}
     num_pix = hp.nside2npix(nside)
     for band in LSST_bands:
-        counts,min_counts,max_counts = mag_log_normal_dist(sigma,num_pix)
-        band_limit_arrs[band] = limitingMags[band]+counts
+        counts, min_counts, max_counts = mag_log_normal_dist(sigma, num_pix)
+        band_limit_arrs[band] = limitingMags[band] + counts
         band_limit_min_arrs[band] = min_counts
         band_limit_max_arrs[band] = max_counts
-    return band_limit_arrs,band_limit_min_arrs,band_limit_max_arrs
+    return band_limit_arrs, band_limit_min_arrs, band_limit_max_arrs
 
-def trueZ_to_specZ(true_z,year):
+
+def trueZ_to_specZ(true_z, year):
     """
     Convert true redshifts to spectroscopic redshift realizations.
 
@@ -345,12 +374,15 @@ def trueZ_to_specZ(true_z,year):
     ``ValueError`` when called. It exists as a placeholder for future
     spectroscopic error modeling.
     """
-    time_term = np.sqrt(10/year)
-    z_adjust = np.random.normal(loc=true_z,scale=prefactor*(1+true_z)*time_term,size=len(true_z))
+    time_term = np.sqrt(10 / year)
+    z_adjust = np.random.normal(
+        loc=true_z, scale=prefactor * (1 + true_z) * time_term, size=len(true_z)
+    )
     raise ValueError("Not yet implemented")
     return None
 
-def trueZ_to_photoZ(true_z,year,modeled=False):
+
+def trueZ_to_photoZ(true_z, year, modeled=False):
     """
     Convert true redshifts to photometric redshift realizations.
 
@@ -376,15 +408,27 @@ def trueZ_to_photoZ(true_z,year,modeled=False):
         Array of photometric redshift realizations.
     """
     if modeled:
-        prefactor=0.01
+        prefactor = 0.01
     else:
-        prefactor=0.04
-    time_term = np.sqrt(10/year)
-    z_adjust = np.random.normal(loc=true_z,scale=prefactor*(1+true_z)*time_term,size=len(true_z))
+        prefactor = 0.04
+    time_term = np.sqrt(10 / year)
+    z_adjust = np.random.normal(
+        loc=true_z, scale=prefactor * (1 + true_z) * time_term, size=len(true_z)
+    )
     return z_adjust
 
-def GCR_filter_overlord(year, LSST_bands,e_dict,v_dict,airmass=1.2,
-                        z_max=1.2,z_min=None,mag_scatter=0.15,nside=128):
+
+def GCR_filter_overlord(
+    year,
+    LSST_bands,
+    e_dict,
+    v_dict,
+    airmass=1.2,
+    z_max=1.2,
+    z_min=None,
+    mag_scatter=0.15,
+    nside=128,
+):
     """
     Construct a complete set of magnitude and redshift selection filters for
     GCRCatalog-style mock survey queries.
@@ -422,23 +466,28 @@ def GCR_filter_overlord(year, LSST_bands,e_dict,v_dict,airmass=1.2,
     band_limit_dict : dict
         Dictionary mapping each band to its per-pixel limiting magnitude map.
     """
-    
-    # The magnitude limiting cut
-    limiting_mags = GCR_mag_filter_from_year(year, LSST_bands,e_dict,v_dict,airmass)
 
-    band_limit_dict,band_limit_min_dict,band_limit_max_dict = perBand_mag_distribution(LSST_bands,limiting_mags,mag_scatter,nside)
-    
+    # The magnitude limiting cut
+    limiting_mags = GCR_mag_filter_from_year(year, LSST_bands, e_dict, v_dict, airmass)
+
+    band_limit_dict, band_limit_min_dict, band_limit_max_dict = (
+        perBand_mag_distribution(LSST_bands, limiting_mags, mag_scatter, nside)
+    )
+
     # Add the magnitude limiting filter
     filters = []
     for band in LSST_bands:
-        filters.append(f"mag_true_{band}_lsst_no_host_extinction<{limiting_mags[band]+band_limit_max_dict[band]}") # limiting_mags has been swapped for band_limit_max_dict here
+        filters.append(
+            f"mag_true_{band}_lsst_no_host_extinction<{limiting_mags[band]+band_limit_max_dict[band]}"
+        )  # limiting_mags has been swapped for band_limit_max_dict here
 
     # Add the redshift filter
-    filters = GCR_redshift_filter(filters,z_max,z_min)
+    filters = GCR_redshift_filter(filters, z_max, z_min)
 
-    return filters,band_limit_dict
+    return filters, band_limit_dict
 
-def GCR_redshift_filter(filt,z_max,z_min=None):
+
+def GCR_redshift_filter(filt, z_max, z_min=None):
     """
     Append redshift selection cuts to an existing filter list.
 
@@ -457,11 +506,12 @@ def GCR_redshift_filter(filt,z_max,z_min=None):
         Updated filter list including the redshift cuts.
     """
     filt.append(f"redshift_true<{z_max}")
-    if z_min!=None:
+    if z_min != None:
         filt.append(f"redshift_true>{z_min}")
     return filt
 
-def GCR_mag_filter_from_year(year, LSST_bands,e_dict,v_dict,airmass=1.2):
+
+def GCR_mag_filter_from_year(year, LSST_bands, e_dict, v_dict, airmass=1.2):
     """
     Compute per-band limiting magnitudes for an LSST-like survey realization.
 
@@ -489,66 +539,86 @@ def GCR_mag_filter_from_year(year, LSST_bands,e_dict,v_dict,airmass=1.2):
     """
     limiting_mags = {}
     for band in LSST_bands:
-        C_m,m_sky,theta_eff,k_m = getLSSTBandParameters(band)
-        limiting_mags[band] = LSST_mag_lim(C_m,m_sky,theta_eff,e_dict[band]*v_dict[band]*year,k_m,airmass)
-    
+        C_m, m_sky, theta_eff, k_m = getLSSTBandParameters(band)
+        limiting_mags[band] = LSST_mag_lim(
+            C_m, m_sky, theta_eff, e_dict[band] * v_dict[band] * year, k_m, airmass
+        )
+
     return limiting_mags
 
-def LSST_mag_lim(C_m,m_sky,theta_eff,t_vis,k_m,X):
-    '''
+
+def LSST_mag_lim(C_m, m_sky, theta_eff, t_vis, k_m, X):
+    """
     C_m is the band dependent parameter
     m_sky is the sky brightness (AB mag arcsec−2)
     theta_eff is the seeing (in arcseconds)
     t_vis is the exposure time (seconds)
     k_m is the atmospheric extinction coefficient
     X is air mass
-    '''
-    return C_m + 0.5 * (m_sky-21) + 2.5*np.log10(0.7/theta_eff)+1.25*np.log10(t_vis/30)-k_m*(X-1)
+    """
+    return (
+        C_m
+        + 0.5 * (m_sky - 21)
+        + 2.5 * np.log10(0.7 / theta_eff)
+        + 1.25 * np.log10(t_vis / 30)
+        - k_m * (X - 1)
+    )
+
 
 def getLSSTBandParameters(band):
     # Band dict in the form of band: [C_m,m_sky,theta_eff,k_m]
     # From eq. 6 of Ivecic 2019
-    bandDict = {"u":[23.09,22.99,0.92,0.491],
-                "g":[24.42,22.26,0.87,0.213],
-                "r":[24.44,21.20,0.83,0.126],
-                "i":[24.32,20.48,0.80,0.096],
-                "z":[24.16,19.60,0.78,0.069],
-                "y":[23.73,18.61,0.76,0.170],
-               }
+    bandDict = {
+        "u": [23.09, 22.99, 0.92, 0.491],
+        "g": [24.42, 22.26, 0.87, 0.213],
+        "r": [24.44, 21.20, 0.83, 0.126],
+        "i": [24.32, 20.48, 0.80, 0.096],
+        "z": [24.16, 19.60, 0.78, 0.069],
+        "y": [23.73, 18.61, 0.76, 0.170],
+    }
     return bandDict[band.lower()]
+
 
 def O4DutyCycles(detector):
     """
     A function to return the O4b duty cycles, based on a detector supplied
     Duty cycles taken from https://observing.docs.ligo.org/plan/
     """
-    
-    if detector=="H1":
+
+    if detector == "H1":
         return 0.65
-    elif detector=="L1":
+    elif detector == "L1":
         return 0.8
-    elif detector=="V1":
+    elif detector == "V1":
         return 0.7
     else:
-        raise ValueError("Detector {} is not one of 'H1', 'L1', or 'V1'".format(detector))
+        raise ValueError(
+            "Detector {} is not one of 'H1', 'L1', or 'V1'".format(detector)
+        )
         return
+
 
 def detectorListing(obsRun="O4"):
     """
     A function to return a list of interferometers, based on their duty cycles
     """
 
-    if obsRun=="O4":
-        dutyFunc=O4DutyCycles
+    if obsRun == "O4":
+        dutyFunc = O4DutyCycles
     else:
-        raise ValueError("Observing run {} not yet supported for computing duty cycles.".format(obsRun))
+        raise ValueError(
+            "Observing run {} not yet supported for computing duty cycles.".format(
+                obsRun
+            )
+        )
         return
-    
+
     detList = []
-    for detector in ["H1","L1","V1"]:
-        if np.random.random()<dutyFunc(detector):
+    for detector in ["H1", "L1", "V1"]:
+        if np.random.random() < dutyFunc(detector):
             detList.append(detector)
     return detList
+
 
 def get_source_model(source_model_name="BBH"):
     """
@@ -565,15 +635,20 @@ def get_source_model(source_model_name="BBH"):
         ValueError: If the source model name is not recognized.
     """
     source_models = {
-        "BBH": bb.gw.source.lal_binary_black_hole,   # Binary Black Hole model
-        "BNS": bb.gw.source.lal_binary_neutron_star,   # Binary Neutron Star model
+        "BBH": bb.gw.source.lal_binary_black_hole,  # Binary Black Hole model
+        "BNS": bb.gw.source.lal_binary_neutron_star,  # Binary Neutron Star model
         # "NSBH": bb.gw.source.NeutronStarBlackHole  # Neutron Star-Black Hole model
     }
 
     if source_model_name not in source_models:
-        raise ValueError("Invalid source model '{}'. Choose from {}.".format(source_model_name,list(source_models.keys())))
+        raise ValueError(
+            "Invalid source model '{}'. Choose from {}.".format(
+                source_model_name, list(source_models.keys())
+            )
+        )
 
     return source_models[source_model_name]
+
 
 def get_next_available_dir(base_dir):
     """
@@ -599,7 +674,8 @@ def get_next_available_dir(base_dir):
 
     # Determine the next available number, starting from 0
     next_number = max(existing_numbers, default=-1) + 1
-    return "{}_{}".format(base_dir,next_number)
+    return "{}_{}".format(base_dir, next_number)
+
 
 def fakeGeoCentTime():
     """
@@ -607,23 +683,26 @@ def fakeGeoCentTime():
     returns the geocentric time in unix form
     The time is between the start-end time of O4b
     """
-    times = ['2024-04-03T00:00:00', '2025-06-04T00:00:00']
-    tArr = Time(times, format='isot', scale='tcg')
-    return bb.core.prior.Uniform(tArr[0],tArr[1]).sample(1).unix[0]
+    times = ["2024-04-03T00:00:00", "2025-06-04T00:00:00"]
+    tArr = Time(times, format="isot", scale="tcg")
+    return bb.core.prior.Uniform(tArr[0], tArr[1]).sample(1).unix[0]
+
 
 def makeGeoCentTime(time):
-    return Time(time, format='isot', scale='tcg')
+    return Time(time, format="isot", scale="tcg")
+
 
 def constraintToUniform(priorDict):
     """
     A function to convert any priors in the prior dictionary from bb.core.prior.base.Constraint types to bb.core.prior.prior.Uniform types.
     """
     # Turning entries in the prior dictionary from Constraint type to Uniform over the constraint range
-    for i,k in zip(priorDict.keys(),priorDict.values()):
-        if type(k) ==bb.core.prior.base.Constraint:
-            priorDict[i] = bb.core.prior.Uniform(k.minimum,k.maximum)
-            
+    for i, k in zip(priorDict.keys(), priorDict.values()):
+        if type(k) == bb.core.prior.base.Constraint:
+            priorDict[i] = bb.core.prior.Uniform(k.minimum, k.maximum)
+
     return priorDict
+
 
 def get_merger_prior(merger_type="BBH"):
     """
@@ -641,14 +720,16 @@ def get_merger_prior(merger_type="BBH"):
         ValueError: If the merger type is not recognized.
     """
     merger_priors = {
-        "BBH": bb.gw.prior.BBHPriorDict,   # Binary Black Hole
-        "BNS": bb.gw.prior.BNSPriorDict,   # Binary Neutron Star
+        "BBH": bb.gw.prior.BBHPriorDict,  # Binary Black Hole
+        "BNS": bb.gw.prior.BNSPriorDict,  # Binary Neutron Star
         # "NSBH": bb.gw.prior.NSBHPriorDict  # Neutron Star-Black Hole
     }
 
     if merger_type not in merger_priors:
-        raise ValueError("Invalid merger type '{}'. Choose from {}.".format(merger_type,list(merger_priors.keys())))
+        raise ValueError(
+            "Invalid merger type '{}'. Choose from {}.".format(
+                merger_type, list(merger_priors.keys())
+            )
+        )
 
     return merger_priors[merger_type]()
-
-    
