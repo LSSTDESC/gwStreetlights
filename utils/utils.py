@@ -11,7 +11,7 @@ import astropy.units as u
 from astropy.cosmology import FlatLambdaCDM
 import astropy.cosmology.units as cu
 
-def getHp_band_dict(hp_ids,lsst_bands,sigma,nside):
+def getHp_band_dict(hp_ids,lsst_bands,sigma,nside,limiting_mags):
     """
     Construct per-Healpix, per-band limiting magnitude dictionaries.
 
@@ -30,6 +30,8 @@ def getHp_band_dict(hp_ids,lsst_bands,sigma,nside):
         Log-normal scatter amplitude used to generate depth perturbations.
     nside : int
         Healpix NSIDE parameter defining sky map resolution.
+    limiting_mags : dict
+        Dictionary with keys ("u", "g", "r", "i", "z", "y"), and values of limiting mags for each band
 
     Returns
     -------
@@ -43,7 +45,7 @@ def getHp_band_dict(hp_ids,lsst_bands,sigma,nside):
     scope and provides the fiducial limiting magnitude for each band.
     """
     realistic_mags_hp_matched = {} # Instantiate the dictionary
-    uniq_hp_ids = np.sort(np.unique(hp_ids) # Get the unique hp indices
+    uniq_hp_ids = np.sort(np.unique(hp_ids)) # Get the unique hp indices
     for band in lsst_bands: # iterate over bands
         realistic_mags = limiting_mags[band]+getMagLimitAdjustment(sigma,nside) # 
         realistic_mags_hp_matched[band] = realistic_mags[uniq_hp_ids]
@@ -164,7 +166,7 @@ def getMagLimitAdjustment(sig,nside):
     counts -= np.median(counts)
     return counts
 
-def transmute_redshift(inputRedshift,inputCosmology,alternate_h=0.5,z_max=5):
+def transmute_redshift(inputRedshift,inputCosmology,alternate_h=0.5,zmax=5):
     """
     Re-map redshifts under an alternative Hubble constant via luminosity-distance
     invariance.
