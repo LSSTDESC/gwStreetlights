@@ -10,10 +10,382 @@ from astropy.cosmology.units import redshift_distance
 import astropy.units as u
 from astropy.cosmology import FlatLambdaCDM
 import astropy.cosmology.units as cu
+from scipy.optimize import curve_fit
+
+LSST_bands = ["u", "g", "r", "i", "z", "Y"]
+visits_per_yr = (
+    np.array([56, 74, 184, 187, 166, 171]) / 10
+)  # visits per year in u-g-r-i-z-y
+
+visits_dict = {}
+for band, vis in zip(LSST_bands, visits_per_yr):
+    visits_dict[band] = vis
+
+expTimes = [38, 30, 30, 30, 30, 30]
+
+eTime_dict = {}
+for band, eTime in zip(LSST_bands, expTimes):
+    eTime_dict[band] = eTime
+
+
+def mag_uniformity_plot(
+    hp_band_dictionary,
+    nside=128,
+    low_mag=24.5,
+    hi_mag=27.8,
+    mag_step=0.05,
+    tight=True,
+    save=False,
+    fname="magnitudeUniformity.jpg",
+):
+    """
+    Plot the distribution of limiting magnitudes across healpix sky pixels for
+    each LSST photometric band.
+
+    This function visualizes the spatial uniformity of survey depth by producing
+    histograms of per–pixel limiting magnitudes stored in a healpix-indexed
+    dictionary. A separate histogram is overlaid for each LSST band.
+
+    Parameters
+    ----------
+    hp_band_dictionary : dict
+        Dictionary keyed by healpix pixel index, where each value is a mapping
+        ``{band: limiting_magnitude}`` for LSST bands (u, g, r, i, z, y).
+
+    nside : int, optional
+        Healpix NSIDE resolution parameter used to define the sky pixelization.
+        Default is 128.
+
+    low_mag : float, optional
+        Lower bound of the magnitude histogram range. Default is 24.5.
+
+    hi_mag : float, optional
+        Upper bound of the magnitude histogram range. Default is 27.8.
+
+    mag_step : float, optional
+        Bin width of the magnitude histograms. Default is 0.05.
+
+    tight : bool, optional
+        If True, apply ``fig.tight_layout()`` before displaying or saving the
+        figure. Default is True.
+
+    save : bool, optional
+        If True, save the figure to disk using ``fname``. Default is False.
+
+    fname : str, optional
+        Output filename for the saved figure. Default is
+        ``"magnitudeUniformity.jpg"``.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The generated matplotlib Figure object.
+
+    ax : matplotlib.axes.Axes
+        The Axes object containing the histogram plot.
+    """
+    fig, ax = plt.subplots()
+    for band in LSST_bands:
+        limits = []
+        for ind in hp_band_dictionary.keys():
+            limits.append(hp_band_dictionary[ind][band])
+        ax.hist(
+            limits,
+            histtype="step",
+            density=False,
+            bins=np.arange(low_mag, hi_mag, step=mag_step),
+            label=f"{band}",
+        )
+    ax.legend()
+
+    ax.set_xlabel(f"Limiting magnitude in each NSIDE={nside} healpix pixel")
+    ax.set_ylabel("Counts / bin")
+    if tight:
+        fig.tight_layout()
+    fig.show()
+    if save:
+        fig.savefig(os.path.join(os.getcwd(), fname), dpi=200)
+
+    return fig, ax
+
+
+def mag_lim_checker(inputData, hp_band_dictionary, nside):
+    """
+    Validate that all objects in a catalog satisfy healpix–dependent magnitude
+    limits in each LSST band.
+
+    For each healpix pixel, this routine checks whether any object in the
+    corresponding subset of ``inputData`` exceeds the limiting magnitude defined
+    in ``hp_band_dictionary``. If any violation is found, a ``ValueError`` is
+    raised.
+
+    Parameters
+    ----------
+    inputData : pandas.DataFrame
+        Catalog containing object magnitudes and a healpix index column named
+        ``"hp_ind_nside{nside}"``.
+
+    hp_band_dictionary : dict
+        Dictionary keyed by healpix pixel index. Each value is a mapping
+        ``{band: limiting_magnitude}`` for LSST bands.
+
+    nside : int
+        Healpix NSIDE parameter defining the sky pixelization.
+
+    Returns
+    -------
+    int
+        Returns 0 if all objects satisfy the magnitude limits.
+
+    Raises
+    ------
+    ValueError
+        If any object violates the magnitude limit in any band for its healpix
+        pixel.
+    """
+    for hp, band_lim in zip(hp_band_dictionary.keys(), hp_band_dictionary.values()):
+        subData = inputData[inputData[f"hp_ind_nside{nside}"] == hp]
+        for band, lim in zip(band_lim.keys(), band_lim.values()):
+            msk = subData[f"mag_true_{band}_lsst_no_host_extinction"] > lim
+            if msk.any():
+                raise ValueError(
+                    f"Healpix index {hp} fails magnitude limit for band {band}"
+                )
+                return -1
+    print("Dataframe passes magnitude limit criteria")
+    return 0
+
+
+def schechter_M(M, phi_star, M_star, alpha):
+    """
+    Evaluate the Schechter luminosity function in absolute–magnitude form.
+
+    Implements:
+
+    .. math::
+
+        \\Phi(M) = 0.4\\ln(10) \\, \\phi_* \\, 10^{0.4(\\alpha+1)(M_* - M)}
+        \\, \\exp\\left[-10^{0.4(M_* - M)}\\right]
+
+    Parameters
+    ----------
+    M : array_like
+        Absolute magnitudes.
+
+    phi_star : float
+        Normalization parameter :math:`\\phi_*` (Mpc⁻³).
+
+    M_star : float
+        Characteristic magnitude :math:`M_*`.
+
+    alpha : float
+        Faint–end slope parameter :math:`\\alpha`.
+
+    Returns
+    -------
+    array_like
+        Value of the Schechter luminosity function :math:`\\Phi(M)` in units of
+        Mpc⁻³ mag⁻¹.
+    """
+    return (
+        0.4
+        * np.log(10)
+        * phi_star
+        * 10 ** (0.4 * (alpha + 1) * (M_star - M))
+        * np.exp(-(10 ** (0.4 * (M_star - M))))
+    )
+
+
+def p_z_distribution(
+    data, z_step=0.05, z_max=1.8, tight=True, save=False, fname="P_Z_distribution.jpg"
+):
+    """
+    Plot histograms of true and measured redshift distributions.
+
+    This routine overlays histograms of the true and measured redshifts from a
+    galaxy catalog, allowing direct visual comparison of photometric redshift
+    performance.
+
+    Parameters
+    ----------
+    data : pandas.DataFrame
+        Catalog containing ``"redshift_true"`` and ``"redshift_measured"`` columns.
+
+    z_step : float, optional
+        Width of the redshift bins. Default is 0.05.
+
+    z_max : float, optional
+        Maximum redshift shown in the histogram. Default is 1.8.
+
+    tight : bool, optional
+        If True, apply ``fig.tight_layout()``. Default is True.
+
+    save : bool, optional
+        If True, save the figure to disk. Default is False.
+
+    fname : str, optional
+        Output filename for the saved figure. Default is
+        ``"P_Z_distribution.jpg"``.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The generated matplotlib Figure.
+
+    ax : matplotlib.axes.Axes
+        The Axes object containing the histograms.
+    """
+    fig, ax = plt.subplots()
+
+    # Plot the true redshift
+    ax.hist(
+        data["redshift_true"],
+        histtype="step",
+        bins=np.arange(0, z_max + z_step, step=z_step),
+        label="True redshift",
+    )
+
+    # Plot the measured redshift
+    ax.hist(
+        data["redshift_measured"],
+        histtype="step",
+        bins=np.arange(0, z_max + z_step, step=z_step),
+        label="Measured redshift",
+    )
+
+    ax.set_xlabel("$z$")
+    ax.set_ylabel("$N_{gals}$ / bin")
+    ax.legend()
+    if tight:
+        fig.tight_layout()
+    if save:
+        fig.savefig(os.path.join(os.getcwd(), fname), dpi=200)
+
+    return fig, ax
+
+
+def redshiftPrecisionPlot(
+    dat,
+    yr,
+    zmin=0,
+    zmax=1.5,
+    z_step=0.05,
+    spec=False,
+    modeled=True,
+    tight=True,
+    save=False,
+    fname="RedshiftPrecision.jpg",
+):
+    """
+    Plot predicted and measured photometric redshift precision as a function of redshift.
+
+    This routine compares an analytic model for photometric redshift precision
+    with the measured scatter in ``|z_measured - z_true|`` computed from a galaxy
+    catalog, binned in redshift.
+
+    Parameters
+    ----------
+    dat : pandas.DataFrame
+        Catalog containing ``"redshift_true"`` and ``"redshift_measured"`` columns.
+
+    yr : int or float
+        Survey year used to scale the modeled redshift precision.
+
+    zmin : float, optional
+        Minimum redshift to include. Default is 0.
+
+    zmax : float, optional
+        Maximum redshift to include. Default is 1.5.
+
+    z_step : float, optional
+        Width of the redshift bins. Default is 0.05.
+
+    spec : bool, optional
+        If True, indicate spectroscopic precision. Currently not implemented.
+        Default is False.
+
+    modeled : bool, optional
+        If True, use the modeled photometric precision prefactor; otherwise use
+        a conservative empirical prefactor. Default is True.
+
+    tight : bool, optional
+        If True, apply ``fig.tight_layout()``. Default is True.
+
+    save : bool, optional
+        If True, save the figure to disk. Default is False.
+
+    fname : str, optional
+        Output filename for the saved figure. Default is
+        ``"RedshiftPrecision.jpg"``.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The generated matplotlib Figure.
+
+    ax : matplotlib.axes.Axes
+        The Axes object containing the precision curves.
+
+    Raises
+    ------
+    ValueError
+        If ``spec=True`` is requested (not yet implemented).
+    """
+
+    def getPrefactor(modeled=False):
+        if modeled:
+            return 0.01
+        else:
+            return 0.04
+
+    def yearAdjustment(yr):
+        return np.sqrt(10 / yr)
+
+    fig, ax = plt.subplots()
+
+    prefactor = getPrefactor(modeled)
+    if spec:
+        prefactor = 1e-4
+        raise ValueError(
+            "Spectroscopic redshift precision has not yet been implemented"
+        )
+
+    yr_adjust = yearAdjustment(yr)
+
+    z_arr = np.arange(zmin, zmax + z_step, step=z_step)
+
+    predicted = (1 + z_arr) * yr_adjust * prefactor
+
+    measured, _95, _5 = [], [], []
+
+    for z in z_arr:
+        msk = np.logical_and(
+            dat["redshift_measured"] < z + z_step, dat["redshift_measured"] > z
+        )
+        difference = abs(dat[msk]["redshift_measured"] - dat[msk]["redshift_true"])
+        measured_val, _95_val, _5_val = np.nanpercentile(difference, (50, 95, 5))
+        measured.append(measured_val)
+        _95.append(_95_val)
+        _5.append(_5_val)
+
+    ax.step(z_arr, predicted, label="Predicted precision", where="mid", marker="o")
+    ax.step(z_arr, measured, label="Measured precision", where="mid", marker="o")
+
+    ax.legend()
+    ax.set_xlabel("$z$")
+    ax.set_ylabel("$z_{measured} - z_{true}$")
+
+    if tight:
+        fig.tight_layout()
+    if save:
+        fig.savefig(fname, dpi=300)
+
+    return fig, ax
 
 
 def luminosityFunction(
     inputData,
+    cosmo,
     z_step=0.5,
     delta_mag=0.2,
     z_max=3,
@@ -21,7 +393,9 @@ def luminosityFunction(
     faintMag=-15.4,
     fname="SkySimSchecter.jpg",
     tight=True,
-    save=True,
+    save=False,
+    p0=[1e-4, -10, -1.2],
+    maxfev=10000,
 ):
     """
     Compute and plot binned rest–frame galaxy luminosity functions in LSST bands
@@ -42,13 +416,15 @@ def luminosityFunction(
     inputData : pandas.DataFrame
         Catalog of galaxies containing at minimum a ``"redshift"`` column and
         the following rest–frame magnitude columns:
-
         - ``"LSST_filters/magnitude:LSST_u:rest"``
         - ``"LSST_filters/magnitude:LSST_g:rest"``
         - ``"LSST_filters/magnitude:LSST_r:rest"``
         - ``"LSST_filters/magnitude:LSST_i:rest"``
         - ``"LSST_filters/magnitude:LSST_z:rest"``
         - ``"LSST_filters/magnitude:LSST_y:rest"``
+
+    cosmo : astropy.cosmology.Cosmology
+        The input cosmology of the associated data
 
     z_step : float, optional
         Width of the redshift bins. Default is ``0.5``.
@@ -98,30 +474,37 @@ def luminosityFunction(
       function fitting.
     """
     fig, axs = plt.subplots(
-        int(z_max / z_step), 6, figsize=(18, 3 * int(z_max / z_step)), sharex=True
+        round(z_max / z_step), 6, figsize=(18, 3 * round(z_max / z_step)), sharex=True
     )
 
     rowIter = 0
 
+    results = {}  # The fitted results
+
     for z_lower in np.arange(0, z_max, step=z_step):
-        data = inputData[inputData["redshift"] > z_lower][
-            inputData["redshift"] < z_lower + z_step
+        z1, z2 = z_lower, z_lower + z_step
+        V = (cosmo.comoving_volume(z2) - cosmo.comoving_volume(z1)).value  # Mpc^3
+
+        data = inputData[inputData["redshift_measured"] > z_lower][
+            inputData["redshift_measured"] < z_lower + z_step
         ]
         # Could add an is_central filter here ...
 
         colIter = 0
-        for columnName in [
-            "LSST_filters/magnitude:LSST_u:rest",
-            "LSST_filters/magnitude:LSST_g:rest",
-            "LSST_filters/magnitude:LSST_r:rest",
-            "LSST_filters/magnitude:LSST_i:rest",
-            "LSST_filters/magnitude:LSST_z:rest",
-            "LSST_filters/magnitude:LSST_y:rest",
-        ]:
-
-            band = columnName.split(":")[-2][-1]
+        for columnName, band in zip(
+            [
+                "Mag_true_u_lsst_z0_no_host_extinction",
+                "Mag_true_g_lsst_z0_no_host_extinction",
+                "Mag_true_r_lsst_z0_no_host_extinction",
+                "Mag_true_i_lsst_z0_no_host_extinction",
+                "Mag_true_z_lsst_z0_no_host_extinction",
+                "Mag_true_Y_lsst_z0_no_host_extinction",
+            ],
+            LSST_bands,
+        ):
 
             ax = axs[rowIter, colIter]
+            ax.xaxis.set_inverted(True)
 
             bin_num = {}
             for mag_low in np.arange(brightMag, faintMag, step=delta_mag):
@@ -136,38 +519,83 @@ def luminosityFunction(
 
             k, v = bin_num.keys(), bin_num.values()
 
+            phi = np.array(list(v)) / (V * delta_mag)
+
+            M_centers = np.array(list(k))
+            phi_vals = phi / (cosmo.h) ** 3
+
+            mask = phi_vals > 0
+
+            # initial guess for phi*, M*, and alpha
+
+            popt, pcov = curve_fit(
+                schechter_M, M_centers[mask], phi_vals[mask], p0=p0, maxfev=maxfev
+            )
+
+            # M_plot = np.linspace(brightMag, faintMag, 200)
+            # ax.plot(M_plot, schechter_M(M_plot, *popt))
+
             ax.plot(k, v, "-o")
+            # ax.plot(k, phi, "-o")
             ax.semilogy()
             ax.xaxis.set_inverted(True)
 
+            results[(z1, z2, band)] = dict(
+                phi_star=popt[0], M_star=popt[1], alpha=popt[2], cov=pcov
+            )
+            # ax.text(
+            #     0.75,
+            #     0.3,
+            #     rf"$\phi_*$={popt[0]:0.3f}",
+            #     horizontalalignment="center",
+            #     verticalalignment="center",
+            #     transform=ax.transAxes,
+            # )
+            # ax.text(
+            #     0.75,
+            #     0.2,
+            #     rf"$M_*$={popt[1]:0.3f}",
+            #     horizontalalignment="center",
+            #     verticalalignment="center",
+            #     transform=ax.transAxes,
+            # )
+            # ax.text(
+            #     0.75,
+            #     0.1,
+            #     rf"$\alpha$={popt[2]:0.3f}",
+            #     horizontalalignment="center",
+            #     verticalalignment="center",
+            #     transform=ax.transAxes,
+            # )
+
             colIter += 1
+        ax.text(
+            0.75,
+            0.4,
+            f"{z_lower:0.2f}<z<{z_lower+z_step:0.2f}",
+            horizontalalignment="center",
+            verticalalignment="center",
+            transform=ax.transAxes,
+        )
         rowIter += 1
 
     # Formatting each plot
-    for a, band in zip(axs[-1, :], ["u", "g", "r", "i", "z", "Y"]):
+    for a, band in zip(axs[-1, :], LSST_bands):
         a.set_xlabel("$M_{}$".format(band))
 
     for a in axs[:, 0]:
-        a.set_ylabel("$N_{gals}$")
+        a.set_ylabel("$\phi [h^3 Mpc^{-3]}]$")
 
     for a in axs.flatten():
         a.grid(ls="--", which="major")
         a.grid(ls="-.", which="minor", alpha=0.3)
-        a.text(
-            0.8,
-            0.6,
-            f"{z_lower}<z<{z_lower+z_step}",
-            horizontalalignment="center",
-            verticalalignment="center",
-            transform=a.transAxes,
-        )
 
     if tight:
         fig.tight_layout()
     if save:
         fig.savefig(os.path.join(os.getcwd(), fname), dpi=200)
     plt.show()
-    return fig, axs
+    return fig, axs, results
 
 
 def getHp_band_dict(hp_ids, lsst_bands, sigma, nside, limiting_mags):
