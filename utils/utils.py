@@ -12,6 +12,164 @@ from astropy.cosmology import FlatLambdaCDM
 import astropy.cosmology.units as cu
 
 
+def luminosityFunction(
+    inputData,
+    z_step=0.5,
+    delta_mag=0.2,
+    z_max=3,
+    brightMag=-22.5,
+    faintMag=-15.4,
+    fname="SkySimSchecter.jpg",
+    tight=True,
+    save=True,
+):
+    """
+    Compute and plot binned rest–frame galaxy luminosity functions in LSST bands
+    over a sequence of redshift slices.
+
+    This routine partitions an input galaxy catalog into contiguous redshift
+    bins of width ``z_step`` between :math:`z=0` and ``z_max``. For each redshift
+    slice, it computes a simple binned luminosity function in rest–frame absolute
+    magnitude for each of the six LSST bands (u, g, r, i, z, y), and produces a
+    multi–panel figure showing the number of galaxies per magnitude bin.
+
+    The luminosity functions are plotted as :math:`N(M)` (counts per bin) on a
+    logarithmic y–axis, with the magnitude axis inverted so that brighter objects
+    appear to the left, following standard astronomical convention.
+
+    Parameters
+    ----------
+    inputData : pandas.DataFrame
+        Catalog of galaxies containing at minimum a ``"redshift"`` column and
+        the following rest–frame magnitude columns:
+
+        - ``"LSST_filters/magnitude:LSST_u:rest"``
+        - ``"LSST_filters/magnitude:LSST_g:rest"``
+        - ``"LSST_filters/magnitude:LSST_r:rest"``
+        - ``"LSST_filters/magnitude:LSST_i:rest"``
+        - ``"LSST_filters/magnitude:LSST_z:rest"``
+        - ``"LSST_filters/magnitude:LSST_y:rest"``
+
+    z_step : float, optional
+        Width of the redshift bins. Default is ``0.5``.
+
+    delta_mag : float, optional
+        Width of the absolute–magnitude bins used to construct the luminosity
+        functions. Default is ``0.2``.
+
+    z_max : float, optional
+        Maximum redshift to consider. Redshift bins are generated from
+        ``z = 0`` to ``z_max`` in steps of ``z_step``. Default is ``3``.
+
+    brightMag : float, optional
+        Bright (more negative) limit of the magnitude range to be binned.
+        Default is ``-22.5``.
+
+    faintMag : float, optional
+        Faint limit of the magnitude range to be binned. Default is ``-15.4``.
+
+    fname : str, optional
+        Filename used when saving the output figure. Default is
+        ``"SkySimSchecter.jpg"``.
+
+    tight : bool, optional
+        If True, apply ``fig.tight_layout()`` before saving/showing the figure.
+        Default is True.
+
+    save : bool, optional
+        If True, save the figure to disk in the current working directory using
+        ``fname``. Default is True.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The generated matplotlib Figure object.
+
+    axs : numpy.ndarray of matplotlib.axes.Axes
+        Array of Axes objects with shape ``(N_z_bins, 6)``, where ``N_z_bins``
+        is the number of redshift slices.
+
+    Notes
+    -----
+    - The resulting figure contains one row per redshift bin and six columns
+      corresponding to the LSST u, g, r, i, z, and y bands.
+    - This implementation computes raw number counts per magnitude bin; it does
+      not apply any volume normalization, completeness correction, or Schechter
+      function fitting.
+    """
+    fig, axs = plt.subplots(
+        int(z_max / z_step), 6, figsize=(18, 3 * int(z_max / z_step)), sharex=True
+    )
+
+    rowIter = 0
+
+    for z_lower in np.arange(0, z_max, step=z_step):
+        data = inputData[inputData["redshift"] > z_lower][
+            inputData["redshift"] < z_lower + z_step
+        ]
+        # Could add an is_central filter here ...
+
+        colIter = 0
+        for columnName in [
+            "LSST_filters/magnitude:LSST_u:rest",
+            "LSST_filters/magnitude:LSST_g:rest",
+            "LSST_filters/magnitude:LSST_r:rest",
+            "LSST_filters/magnitude:LSST_i:rest",
+            "LSST_filters/magnitude:LSST_z:rest",
+            "LSST_filters/magnitude:LSST_y:rest",
+        ]:
+
+            band = columnName.split(":")[-2][-1]
+
+            ax = axs[rowIter, colIter]
+
+            bin_num = {}
+            for mag_low in np.arange(brightMag, faintMag, step=delta_mag):
+                bin_num[mag_low + delta_mag / 2] = len(
+                    data[
+                        np.logical_and(
+                            data[columnName] > mag_low,
+                            data[columnName] > mag_low + delta_mag,
+                        )
+                    ]
+                )
+
+            k, v = bin_num.keys(), bin_num.values()
+
+            ax.plot(k, v, "-o")
+            ax.semilogy()
+            ax.xaxis.set_inverted(True)
+
+            colIter += 1
+        rowIter += 1
+
+    # Formatting each plot
+    for a, band in zip(axs[-1, :], ["u", "g", "r", "i", "z", "Y"]):
+        a.set_xlabel("$M_{}$".format(band))
+
+    for a in axs[:, 0]:
+        a.set_ylabel("$N_{gals}$")
+
+    for a in axs.flatten():
+        a.grid(ls="--", which="major")
+        a.grid(ls="-.", which="minor", alpha=0.3)
+        a.text(
+            0.8,
+            0.6,
+            f"{z_lower}<z<{z_lower+z_step}",
+            horizontalalignment="center",
+            verticalalignment="center",
+            transform=a.transAxes,
+        )
+
+    if tight:
+        fig.tight_layout()
+    if save:
+        fig.savefig(os.path.join(os.getcwd(), fname), dpi=200)
+    plt.show()
+    return fig, axs
+
+
 def getHp_band_dict(hp_ids, lsst_bands, sigma, nside, limiting_mags):
     """
     Construct per-Healpix, per-band limiting magnitude dictionaries.
