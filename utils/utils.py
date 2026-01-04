@@ -11,6 +11,7 @@ import astropy.units as u
 from astropy.cosmology import FlatLambdaCDM
 import astropy.cosmology.units as cu
 from scipy.optimize import curve_fit
+from astropy.modeling.models import Schechter1D
 
 LSST_bands = ["u", "g", "r", "i", "z", "Y"]
 visits_per_yr = (
@@ -26,6 +27,265 @@ expTimes = [38, 30, 30, 30, 30, 30]
 eTime_dict = {}
 for band, eTime in zip(LSST_bands, expTimes):
     eTime_dict[band] = eTime
+
+
+def run_survey_diagnostics(
+    data,
+    hp_band_dict,
+    skysim_catalog,
+    year,
+    z_max,
+    z_step_pz=0.01,
+    z_step_lf=0.2,
+    brightMag=-26,
+    faintMag=-15,
+    mag_low_fit=-17,
+    mag_high_fit=-24,
+    p0=(1e-3, -22.0, -1.1),
+    maxfev=50000,
+    modeled=True,
+    hi_mag=27.3,
+    low_mag=24.5,
+    NSIDE=None,
+):
+    """
+    Run the standard diagnostics suite on a processed SkySim catalog.
+
+    This function generates the core set of validation plots used to assess
+    redshift performance, luminosity function recovery, and spatial magnitude
+    non–uniformity for a simulated LSST galaxy sample.
+
+    The diagnostics include:
+
+      1. The redshift probability distribution P(z).
+      2. Schechter luminosity function fits in LSST bands over redshift slices.
+      3. Photometric redshift precision relative to model expectations.
+      4. Healpix–based magnitude non–uniformity maps.
+      5. A boolean sanity check verifying that each healpix pixel satisfies
+         the imposed limiting magnitude cuts.
+
+    Parameters
+    ----------
+    data : pandas.DataFrame
+        LSST–like galaxy catalog produced by the forward–modeling pipeline.
+        Must include photometric redshifts, true magnitudes, and healpix indices.
+
+    hp_band_dict : dict
+        Spatial depth–uniformity map produced by the survey selection stage.
+
+    skysim_catalog : GCRCatalogs.cosmodc2.SkySim5000GalaxyCatalog
+        GCRCatalog instance associated with the input data.
+
+    year : int
+        LSST survey year used for the photo-z model.
+
+    z_max : float
+        Maximum redshift used for binning and plotting.
+
+    z_step : float, optional
+        Redshift bin width for P(z) and luminosity–function plots. Default is 0.2.
+
+    brightMag, faintMag : float, optional
+        Magnitude range used for luminosity–function binning.
+
+    mag_low_fit, mag_high_fit : float, optional
+        Magnitude range used for Schechter function fitting.
+
+    p0 : tuple, optional
+        Initial guess for Schechter parameters (phi*, M*, alpha).
+
+    maxfev : int, optional
+        Maximum number of function evaluations in LF fitting.
+
+    modeled : bool, optional
+        Whether to overlay modeled redshift precision expectations.
+
+    hi_mag, low_mag : float, optional
+        Color scale bounds for magnitude non–uniformity healpix maps.
+
+    NSIDE : int, optional
+        Healpix NSIDE used for magnitude–limit consistency checking.
+
+    Returns
+    -------
+    results : dict
+        Dictionary of fitted Schechter parameters indexed by (z_low, z_high, band).
+
+    mag_lim_check_result : dict
+        Output of ``mag_lim_checker`` verifying per–pixel magnitude–limit compliance.
+    """
+
+    # P(z)
+    fig_pz, ax_pz = p_z_distribution(data, z_max=z_max, z_step=z_step_pz)
+
+    # Luminosity functions
+    fig_lf, axs_lf, results = luminosityFunction(
+        data,
+        skysim_catalog,
+        p0=p0,
+        z_max=z_max,
+        z_step=z_step_lf,
+        brightMag=brightMag,
+        faintMag=faintMag,
+        mag_low_fit=mag_low_fit,
+        mag_high_fit=mag_high_fit,
+        maxfev=maxfev,
+    )
+
+    # Redshift precision
+    fig_zprec, ax_zprec = redshiftPrecisionPlot(data, year, modeled=modeled)
+
+    # Magnitude non–uniformity
+    fig_uni, ax_uni = mag_uniformity_plot(hp_band_dict, hi_mag=hi_mag, low_mag=low_mag)
+    # TODO: Add a healpix map, and direct comparison to the imposed parameters
+
+    # Magnitude–limit consistency check
+    mag_lim_check_result = None
+    if NSIDE is not None:
+        mag_lim_check_result = mag_lim_checker(data, hp_band_dict, NSIDE)
+
+    figs = [fig_pz, fig_lf, fig_zprec, fig_uni]
+    axes = [ax_pz, axs_lf, ax_zprec, ax_uni]
+
+    return results, mag_lim_check_result, figs, axes
+
+
+def apply_lsst_depth_and_uniformity(
+    skysimCat,
+    year,
+    dataColumns,
+    airmass,
+    z_max,
+    NSIDE,
+    z_min=0,
+    mags_deeper=1,
+    uniformity=0.1,
+    modeled=False,
+    spectroscopic=False,
+):
+    """
+    Apply LSST survey depth, spatial uniformity, and photometric–redshift effects
+    to a SkySim catalog, returning a depth–limited, non-uniform, photo-z–perturbed
+    galaxy sample.
+
+    This routine performs the full observational selection pipeline used in LSST–
+    like forward modeling:
+
+      1. Computes band–dependent limiting magnitudes for the specified survey year.
+      2. Optionally deepens the survey depth by a uniform magnitude offset
+         (e.g. to emulate deeper–than–nominal coadds).
+      3. Constructs sky–position–dependent depth filters using GCR catalogs.
+      4. Queries the SkySim catalog under those selection filters.
+      5. Assigns each object to a HEALPix pixel at the specified NSIDE.
+      6. Applies a spatial uniformity map that enforces non-uniform limiting depths.
+      7. Converts true redshifts into measured photometric redshifts.
+
+    The output catalog therefore represents a realistic, non-uniform LSST
+    observational sample suitable for luminosity function, clustering, and
+    selection–function analyses.
+
+    Parameters
+    ----------
+    skysimCat : GCRCatalog
+        SkySim catalog object supporting ``get_quantities`` queries.
+
+    year : int
+        Survey year (e.g. 1–10) used to determine LSST depth and photo-z performance.
+
+    dataColumns : sequence of str
+        Columns to request from the SkySim catalog.
+
+    airmass : float
+        Airmass used when computing limiting magnitudes.
+
+    z_max : float
+        Maximum redshift used in the GCR depth filters.
+
+    NSIDE : int
+        HEALPix NSIDE used for spatial depth uniformity modeling.
+
+    mags_deeper : float, optional
+        Uniform magnitude offset applied to all limiting magnitudes
+        (positive values make the survey deeper). Default is 0.
+
+    uniformity : float, optional
+        Amplitude of the spatial non-uniformity model. Default is 0 (uniform survey).
+
+    modeled : bool, optional
+        Whether or not the photo-z's are based on modeled objects in the spectroscopic sample
+
+    Returns
+    -------
+    data : pandas.DataFrame
+        Catalog of galaxies after applying depth cuts, spatial uniformity,
+        and photometric redshift perturbations. Includes an added column:
+
+        ``hp_ind_nside{NSIDE}`` — HEALPix pixel index for each object
+        ``redshift_measured`` — photometric redshift
+
+    limiting_mags : dict
+        Dictionary mapping LSST band → limiting magnitude after applying
+        ``mags_deeper``.
+
+    hp_band_dict : dict
+        Spatial uniformity map describing band-dependent depth variations per
+        HEALPix pixel.
+    """
+
+    # Compute limiting magnitudes
+    limiting_mags = GCR_mag_filter_from_year(
+        year, LSST_bands, eTime_dict, visits_dict, airmass=airmass
+    )
+
+    # Apply uniform magnitude deepening
+    for b in LSST_bands:
+        limiting_mags[b] += mags_deeper
+
+    # Build GCR depth filters
+    filters, band_limit_dict = GCR_filter_overlord(
+        year,
+        LSST_bands,
+        eTime_dict,
+        visits_dict,
+        airmass=airmass,
+        z_max=z_max,
+        z_min=z_min,
+        mag_scatter=uniformity,
+        nside=NSIDE,
+    )
+
+    # Query SkySim catalog
+    data = pd.DataFrame(
+        skysimCat.get_quantities(list(dataColumns), filters=tuple(filters))
+    )
+
+    # Assign HEALPix indices
+    hp_col = f"hp_ind_nside{NSIDE}"
+    data[hp_col] = RaDecToIndex(data["ra_true"], data["dec_true"], NSIDE).astype(
+        np.int32
+    )
+
+    # Build spatial uniformity map
+    hp_uniq_ids = np.unique(data[hp_col])
+    hp_band_dict = getHp_band_dict(
+        hp_uniq_ids, LSST_bands, uniformity, NSIDE, limiting_mags
+    )
+
+    # Apply non-uniform depth cuts
+    data = dropFaintGalaxies(
+        data, hp_uniq_ids, LSST_bands, hp_band_dict, hp_ind_label=hp_col
+    )
+
+    # Apply redshift model
+    if spectroscopic:
+        raise ValueError("Spectroscopic redshifts are not yet implemented")
+        data["redshift_measured"] = trueZ_to_specZ(data["redshift_true"], year)
+    else:
+        data["redshift_measured"] = trueZ_to_photoZ(
+            data["redshift_true"], year, modeled=modeled
+        )
+
+    return data, limiting_mags, hp_band_dict
 
 
 def mag_uniformity_plot(
@@ -187,13 +447,8 @@ def schechter_M(M, phi_star, M_star, alpha):
         Value of the Schechter luminosity function :math:`\\Phi(M)` in units of
         Mpc⁻³ mag⁻¹.
     """
-    return (
-        0.4
-        * np.log(10)
-        * phi_star
-        * 10 ** (0.4 * (alpha + 1) * (M_star - M))
-        * np.exp(-(10 ** (0.4 * (M_star - M))))
-    )
+    model = Schechter1D(phi_star, M_star, alpha)
+    return model(M)
 
 
 def p_z_distribution(
@@ -362,14 +617,37 @@ def redshiftPrecisionPlot(
         msk = np.logical_and(
             dat["redshift_measured"] < z + z_step, dat["redshift_measured"] > z
         )
-        difference = abs(dat[msk]["redshift_measured"] - dat[msk]["redshift_true"])
-        measured_val, _95_val, _5_val = np.nanpercentile(difference, (50, 95, 5))
+        difference = dat[msk]["redshift_measured"] - dat[msk]["redshift_true"]
+        difference_abs = np.absolute(difference)
+        _95_val, _5_val = np.nanpercentile(difference_abs, (95, 5))
+        measured_val = np.std(difference)
         measured.append(measured_val)
         _95.append(_95_val)
         _5.append(_5_val)
+        # diffs.append(difference)
 
-    ax.step(z_arr, predicted, label="Predicted precision", where="mid", marker="o")
-    ax.step(z_arr, measured, label="Measured precision", where="mid", marker="o")
+    ax.step(z_arr, predicted, where="post", color="red")
+    ax.scatter(
+        z_arr + z_step / 2,
+        predicted,
+        marker="o",
+        color="red",
+        label="Predicted precision",
+    )
+
+    _5, _95 = [0], [0]
+    ax.step(z_arr, measured, where="post", color="blue")
+    ax.errorbar(
+        z_arr + z_step / 2,
+        measured,
+        yerr=[_5, _95],
+        marker="o",
+        color="blue",
+        label="Measured precision",
+        elinewidth=1,
+        capsize=2,
+        linestyle="",
+    )
 
     ax.legend()
     ax.set_xlabel("$z$")
@@ -385,7 +663,7 @@ def redshiftPrecisionPlot(
 
 def luminosityFunction(
     inputData,
-    cosmo,
+    inputCatalog,
     z_step=0.5,
     delta_mag=0.2,
     z_max=3,
@@ -396,6 +674,8 @@ def luminosityFunction(
     save=False,
     p0=[1e-4, -10, -1.2],
     maxfev=10000,
+    mag_low_fit=-17,
+    mag_high_fit=-23,
 ):
     """
     Compute and plot binned rest–frame galaxy luminosity functions in LSST bands
@@ -416,15 +696,15 @@ def luminosityFunction(
     inputData : pandas.DataFrame
         Catalog of galaxies containing at minimum a ``"redshift"`` column and
         the following rest–frame magnitude columns:
-        - ``"LSST_filters/magnitude:LSST_u:rest"``
-        - ``"LSST_filters/magnitude:LSST_g:rest"``
-        - ``"LSST_filters/magnitude:LSST_r:rest"``
-        - ``"LSST_filters/magnitude:LSST_i:rest"``
-        - ``"LSST_filters/magnitude:LSST_z:rest"``
-        - ``"LSST_filters/magnitude:LSST_y:rest"``
+        - ``"Mag_true_u_lsst_z0_no_host_extinction"``
+        - ``"Mag_true_g_lsst_z0_no_host_extinction"``
+        - ``"Mag_true_r_lsst_z0_no_host_extinction"``
+        - ``"Mag_true_i_lsst_z0_no_host_extinction"``
+        - ``"Mag_true_z_lsst_z0_no_host_extinction"``
+        - ``"Mag_true_Y_lsst_z0_no_host_extinction"``
 
-    cosmo : astropy.cosmology.Cosmology
-        The input cosmology of the associated data
+    inputCatalog : GCRCatalogs.cosmodc2.SkySim5000GalaxyCatalog
+        The input catalog of the associated data
 
     z_step : float, optional
         Width of the redshift bins. Default is ``0.5``.
@@ -483,10 +763,14 @@ def luminosityFunction(
 
     for z_lower in np.arange(0, z_max, step=z_step):
         z1, z2 = z_lower, z_lower + z_step
-        V = (cosmo.comoving_volume(z2) - cosmo.comoving_volume(z1)).value  # Mpc^3
+        V = (
+            inputCatalog.cosmology.comoving_volume(z2)
+            - inputCatalog.cosmology.comoving_volume(z1)
+        ).value  # Mpc^3
 
-        data = inputData[inputData["redshift_measured"] > z_lower][
-            inputData["redshift_measured"] < z_lower + z_step
+        data = inputData[
+            (inputData["redshift_measured"] > z1)
+            & (inputData["redshift_measured"] <= z2)
         ]
         # Could add an is_central filter here ...
 
@@ -504,7 +788,6 @@ def luminosityFunction(
         ):
 
             ax = axs[rowIter, colIter]
-            ax.xaxis.set_inverted(True)
 
             bin_num = {}
             for mag_low in np.arange(brightMag, faintMag, step=delta_mag):
@@ -512,19 +795,21 @@ def luminosityFunction(
                     data[
                         np.logical_and(
                             data[columnName] > mag_low,
-                            data[columnName] > mag_low + delta_mag,
+                            data[columnName] <= mag_low + delta_mag,
                         )
                     ]
                 )
 
             k, v = bin_num.keys(), bin_num.values()
 
-            phi = np.array(list(v)) / (V * delta_mag)
+            V_eff = inputCatalog.sky_area / ((180 / (np.pi)) ** 2)
+
+            phi = np.array(list(v)) * inputCatalog.cosmology.h**-3 / (V_eff * delta_mag)
 
             M_centers = np.array(list(k))
-            phi_vals = phi / (cosmo.h) ** 3
+            phi_vals = phi
 
-            mask = phi_vals > 0
+            mask = (M_centers >= mag_high_fit) & (M_centers <= mag_low_fit)
 
             # initial guess for phi*, M*, and alpha
 
@@ -532,41 +817,39 @@ def luminosityFunction(
                 schechter_M, M_centers[mask], phi_vals[mask], p0=p0, maxfev=maxfev
             )
 
-            # M_plot = np.linspace(brightMag, faintMag, 200)
+            M_plot = np.linspace(brightMag, faintMag, 400)
             # ax.plot(M_plot, schechter_M(M_plot, *popt))
 
             ax.plot(k, v, "-o")
             # ax.plot(k, phi, "-o")
-            ax.semilogy()
-            ax.xaxis.set_inverted(True)
 
             results[(z1, z2, band)] = dict(
                 phi_star=popt[0], M_star=popt[1], alpha=popt[2], cov=pcov
             )
-            # ax.text(
-            #     0.75,
-            #     0.3,
-            #     rf"$\phi_*$={popt[0]:0.3f}",
-            #     horizontalalignment="center",
-            #     verticalalignment="center",
-            #     transform=ax.transAxes,
-            # )
-            # ax.text(
-            #     0.75,
-            #     0.2,
-            #     rf"$M_*$={popt[1]:0.3f}",
-            #     horizontalalignment="center",
-            #     verticalalignment="center",
-            #     transform=ax.transAxes,
-            # )
-            # ax.text(
-            #     0.75,
-            #     0.1,
-            #     rf"$\alpha$={popt[2]:0.3f}",
-            #     horizontalalignment="center",
-            #     verticalalignment="center",
-            #     transform=ax.transAxes,
-            # )
+            ax.text(
+                0.75,
+                0.3,
+                rf"$\phi_*$={popt[0]:0.3f}",
+                horizontalalignment="center",
+                verticalalignment="center",
+                transform=ax.transAxes,
+            )
+            ax.text(
+                0.75,
+                0.2,
+                rf"$M_*$={popt[1]:0.3f}",
+                horizontalalignment="center",
+                verticalalignment="center",
+                transform=ax.transAxes,
+            )
+            ax.text(
+                0.75,
+                0.1,
+                rf"$\alpha$={popt[2]:0.3f}",
+                horizontalalignment="center",
+                verticalalignment="center",
+                transform=ax.transAxes,
+            )
 
             colIter += 1
         ax.text(
@@ -586,9 +869,15 @@ def luminosityFunction(
     for a in axs[:, 0]:
         a.set_ylabel("$\phi [h^3 Mpc^{-3]}]$")
 
+    # a.xaxis.set_inverted(True)
+
+    # for a in axs[0,:]:
+
     for a in axs.flatten():
         a.grid(ls="--", which="major")
         a.grid(ls="-.", which="minor", alpha=0.3)
+        a.semilogy()
+        # a.set_ylim(10**-9,10**0)
 
     if tight:
         fig.tight_layout()
@@ -960,11 +1249,11 @@ def trueZ_to_specZ(true_z, year):
     ``ValueError`` when called. It exists as a placeholder for future
     spectroscopic error modeling.
     """
+    raise ValueError("Spectroscopic redshifts are not yet implemented")
     time_term = np.sqrt(10 / year)
     z_adjust = np.random.normal(
         loc=true_z, scale=prefactor * (1 + true_z) * time_term, size=len(true_z)
     )
-    raise ValueError("Not yet implemented")
     return None
 
 
@@ -999,7 +1288,7 @@ def trueZ_to_photoZ(true_z, year, modeled=False):
         prefactor = 0.04
     time_term = np.sqrt(10 / year)
     z_adjust = np.random.normal(
-        loc=true_z, scale=prefactor * (1 + true_z) * time_term, size=len(true_z)
+        loc=true_z, scale=prefactor * time_term * (1 + true_z), size=len(true_z)
     )
     return z_adjust
 
