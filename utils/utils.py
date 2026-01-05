@@ -593,13 +593,13 @@ def redshiftPrecisionPlot(
         return np.sqrt(10 / yr)
 
     fig, ax = plt.subplots()
-    
+
     yr_adjust = yearAdjustment(yr)
 
     prefactor = getPrefactor(modeled)
     if spec:
         prefactor = 0.0004
-        yr_adjust = 1 # Time independent version
+        yr_adjust = 1  # Time independent version
 
     z_arr = np.arange(zmin, zmax + z_step, step=z_step)
 
@@ -1275,10 +1275,10 @@ def trueZ_to_specZ(true_z, year):
 
     Notes
     -----
-    
+
     """
     z_adjust = np.random.normal(
-        loc=true_z, scale= 0.0004 * (1 + true_z), size=len(true_z)
+        loc=true_z, scale=0.0004 * (1 + true_z), size=len(true_z)
     )
     return z_adjust
 
