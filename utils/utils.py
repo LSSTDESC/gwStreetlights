@@ -275,7 +275,6 @@ def apply_lsst_depth_and_uniformity(
 
     # Apply redshift model
     if spectroscopic:
-        raise ValueError("Spectroscopic redshifts are not yet implemented")
         data["redshift_measured"] = trueZ_to_specZ(data["redshift_true"], year)
     else:
         data["redshift_measured"] = trueZ_to_photoZ(
@@ -594,15 +593,13 @@ def redshiftPrecisionPlot(
         return np.sqrt(10 / yr)
 
     fig, ax = plt.subplots()
+    
+    yr_adjust = yearAdjustment(yr)
 
     prefactor = getPrefactor(modeled)
     if spec:
-        prefactor = 1e-4
-        raise ValueError(
-            "Spectroscopic redshift precision has not yet been implemented"
-        )
-
-    yr_adjust = yearAdjustment(yr)
+        prefactor = 0.0004
+        yr_adjust = 1 # Time independent version
 
     z_arr = np.arange(zmin, zmax + z_step, step=z_step)
 
@@ -1278,16 +1275,12 @@ def trueZ_to_specZ(true_z, year):
 
     Notes
     -----
-    This function is currently **not implemented** and will raise a
-    ``ValueError`` when called. It exists as a placeholder for future
-    spectroscopic error modeling.
+    
     """
-    raise ValueError("Spectroscopic redshifts are not yet implemented")
-    time_term = np.sqrt(10 / year)
     z_adjust = np.random.normal(
-        loc=true_z, scale=prefactor * (1 + true_z) * time_term, size=len(true_z)
+        loc=true_z, scale= 0.0004 * (1 + true_z), size=len(true_z)
     )
-    return None
+    return z_adjust
 
 
 def trueZ_to_photoZ(true_z, year, modeled=False):
