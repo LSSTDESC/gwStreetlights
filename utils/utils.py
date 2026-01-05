@@ -39,14 +39,14 @@ def run_survey_diagnostics(
     z_step_lf=0.2,
     brightMag=-26,
     faintMag=-15,
-    mag_low_fit=-17,
-    mag_high_fit=-24,
+    fit_schecter=False,
     p0=(1e-3, -22.0, -1.1),
     maxfev=50000,
     modeled=True,
     hi_mag=27.3,
     low_mag=24.5,
     NSIDE=None,
+    delta_mag_schecter=0.2,
 ):
     """
     Run the standard diagnostics suite on a processed SkySim catalog.
@@ -88,9 +88,6 @@ def run_survey_diagnostics(
     brightMag, faintMag : float, optional
         Magnitude range used for luminosity–function binning.
 
-    mag_low_fit, mag_high_fit : float, optional
-        Magnitude range used for Schechter function fitting.
-
     p0 : tuple, optional
         Initial guess for Schechter parameters (phi*, M*, alpha).
 
@@ -127,9 +124,9 @@ def run_survey_diagnostics(
         z_step=z_step_lf,
         brightMag=brightMag,
         faintMag=faintMag,
-        mag_low_fit=mag_low_fit,
-        mag_high_fit=mag_high_fit,
         maxfev=maxfev,
+        delta_mag=delta_mag_schecter,
+        fit_schecter=fit_schecter,
     )
 
     # Redshift precision
@@ -674,8 +671,7 @@ def luminosityFunction(
     save=False,
     p0=[1e-4, -10, -1.2],
     maxfev=10000,
-    mag_low_fit=-17,
-    mag_high_fit=-23,
+    fit_schecter=True,
 ):
     """
     Compute and plot binned rest–frame galaxy luminosity functions in LSST bands
@@ -754,7 +750,7 @@ def luminosityFunction(
       function fitting.
     """
     fig, axs = plt.subplots(
-        round(z_max / z_step), 6, figsize=(18, 3 * round(z_max / z_step)), sharex=True
+        round(z_max / z_step), 6, figsize=(24, 4 * round(z_max / z_step)), sharex=True
     )
 
     rowIter = 0
@@ -767,12 +763,14 @@ def luminosityFunction(
             inputCatalog.cosmology.comoving_volume(z2)
             - inputCatalog.cosmology.comoving_volume(z1)
         ).value  # Mpc^3
+        V_eff = V * inputCatalog.sky_area / ((180 / (np.pi)) ** 2)
+        # V_eff = V * inputCatalog.sky_area / (4*np.pi)
 
         data = inputData[
             (inputData["redshift_measured"] > z1)
             & (inputData["redshift_measured"] <= z2)
         ]
-        # Could add an is_central filter here ...
+        # Could add an is_central filter here, to check for robustness...
 
         colIter = 0
         for columnName, band in zip(
@@ -791,7 +789,7 @@ def luminosityFunction(
 
             bin_num = {}
             for mag_low in np.arange(brightMag, faintMag, step=delta_mag):
-                bin_num[mag_low + delta_mag / 2] = len(
+                n_gals = len(
                     data[
                         np.logical_and(
                             data[columnName] > mag_low,
@@ -800,63 +798,95 @@ def luminosityFunction(
                     ]
                 )
 
+                bin_num[mag_low + delta_mag / 2] = n_gals
+
+            bad_keys = [k for k, v in bin_num.items() if v <= 0]
+            for k in bad_keys:
+                bin_num.pop(k)
+
             k, v = bin_num.keys(), bin_num.values()
 
-            V_eff = inputCatalog.sky_area / ((180 / (np.pi)) ** 2)
+            if fit_schecter:
+                mag_low_fit = max(bin_num, key=bin_num.get)
 
-            phi = np.array(list(v)) * inputCatalog.cosmology.h**-3 / (V_eff * delta_mag)
+                mag_high_fit, high_value = min(
+                    ((k, v) for k, v in bin_num.items() if v > 0),
+                    key=lambda item: item[0],
+                )
+                assert high_value > 0, f"Low value ({low_value}) not greater than zero."
 
-            M_centers = np.array(list(k))
-            phi_vals = phi
+                phi = np.array(list(v)) / (V_eff * inputCatalog.cosmology.h**3)
 
-            mask = (M_centers >= mag_high_fit) & (M_centers <= mag_low_fit)
+                M_centers = np.array(list(k))
+                phi_vals = phi
+                mask = (M_centers >= mag_high_fit) & (M_centers <= mag_low_fit)
 
-            # initial guess for phi*, M*, and alpha
+                popt, pcov = curve_fit(
+                    schechter_M, M_centers[mask], phi_vals[mask], p0=p0, maxfev=maxfev
+                )
 
-            popt, pcov = curve_fit(
-                schechter_M, M_centers[mask], phi_vals[mask], p0=p0, maxfev=maxfev
-            )
+                M_plot = np.linspace(mag_high_fit, mag_low_fit, 400)
+                ax.plot(M_plot, schechter_M(M_plot, *popt))  # Plot the fit
 
-            M_plot = np.linspace(brightMag, faintMag, 400)
-            # ax.plot(M_plot, schechter_M(M_plot, *popt))
+                ax.axvline(
+                    mag_high_fit, color="red", alpha=0.6
+                )  # Plot the magnitude limits for fitting purposes
+                ax.axvline(mag_low_fit, color="red", alpha=0.6)
 
-            ax.plot(k, v, "-o")
-            # ax.plot(k, phi, "-o")
+                ax.text(
+                    0.65,
+                    0.3,
+                    rf"$\phi_*$ = {popt[0]:0.1E}",
+                    horizontalalignment="left",
+                    verticalalignment="center",
+                    transform=ax.transAxes,
+                )
+                ax.text(
+                    0.65,
+                    0.2,
+                    rf"$M_*$={popt[1]:0.3f}",
+                    horizontalalignment="left",
+                    verticalalignment="center",
+                    transform=ax.transAxes,
+                )
+                ax.text(
+                    0.65,
+                    0.1,
+                    rf"$\alpha$={popt[2]:0.3f}",
+                    horizontalalignment="left",
+                    verticalalignment="center",
+                    transform=ax.transAxes,
+                )
+                ax.text(
+                    0.25,
+                    0.1,
+                    rf"$M_1$={mag_low_fit:0.3f}",
+                    horizontalalignment="left",
+                    verticalalignment="center",
+                    transform=ax.transAxes,
+                )
+                ax.text(
+                    0.25,
+                    0.2,
+                    rf"$M_2$={mag_high_fit:0.3f}",
+                    horizontalalignment="left",
+                    verticalalignment="center",
+                    transform=ax.transAxes,
+                )
 
-            results[(z1, z2, band)] = dict(
-                phi_star=popt[0], M_star=popt[1], alpha=popt[2], cov=pcov
-            )
-            ax.text(
-                0.75,
-                0.3,
-                rf"$\phi_*$={popt[0]:0.3f}",
-                horizontalalignment="center",
-                verticalalignment="center",
-                transform=ax.transAxes,
-            )
-            ax.text(
-                0.75,
-                0.2,
-                rf"$M_*$={popt[1]:0.3f}",
-                horizontalalignment="center",
-                verticalalignment="center",
-                transform=ax.transAxes,
-            )
-            ax.text(
-                0.75,
-                0.1,
-                rf"$\alpha$={popt[2]:0.3f}",
-                horizontalalignment="center",
-                verticalalignment="center",
-                transform=ax.transAxes,
-            )
+                results[(z1, z2, band)] = dict(
+                    phi_star=popt[0], M_star=popt[1], alpha=popt[2], cov=pcov
+                )
+                ax.plot(k, phi, "-o")  # Plot mag vs phi
+            else:
+                ax.plot(k, v, "-o")  # Plot
 
             colIter += 1
         ax.text(
-            0.75,
-            0.4,
-            f"{z_lower:0.2f}<z<{z_lower+z_step:0.2f}",
-            horizontalalignment="center",
+            0.25,
+            0.3,
+            f"{z_lower:0.1f}<z<{z_lower+z_step:0.1f}",
+            horizontalalignment="left",
             verticalalignment="center",
             transform=ax.transAxes,
         )
@@ -867,7 +897,10 @@ def luminosityFunction(
         a.set_xlabel("$M_{}$".format(band))
 
     for a in axs[:, 0]:
-        a.set_ylabel("$\phi [h^3 Mpc^{-3]}]$")
+        if fit_schecter:
+            a.set_ylabel("$\phi [h^3 Mpc^{-3]}]$")
+        else:
+            a.set_ylabel("$N_{gals}$")
 
     # a.xaxis.set_inverted(True)
 
