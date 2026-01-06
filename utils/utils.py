@@ -12,6 +12,7 @@ from astropy.cosmology import FlatLambdaCDM
 import astropy.cosmology.units as cu
 from scipy.optimize import curve_fit
 from astropy.modeling.models import Schechter1D
+from scipy.interpolate import CubicSpline
 
 LSST_bands = ["u", "g", "r", "i", "z", "Y"]
 visits_per_yr = (
@@ -279,6 +280,7 @@ def apply_lsst_depth_and_uniformity(
         data["redshift_true"] = data["redshift_true"] * (
             alternate_h / skysimCat.cosmology.h
         )
+        # TODO: change the cosmology to reflect the new value of h
 
     # Apply redshift model
     if spectroscopic:
@@ -662,6 +664,153 @@ def redshiftPrecisionPlot(
     return fig, ax
 
 
+def phi_VMax_eales(
+    omega_area,
+    splines,
+    absMag,
+    zmin,
+    zmax,
+    dimMag,
+    brightMag,
+    delta_mag,
+    number_of_zs=10000,
+):
+
+    lum_bin_edges = np.arange(
+        dimMag, brightMag + delta_mag, step=delta_mag
+    )  # The luminosity bin edges
+
+    dl_to_z, z_to_dc, z_to_dl, z_to_vc = splines
+
+    z_array = np.linspace(
+        zmin, zmax, number_of_zs
+    )  # The redshift array over the z_bin defined by zmin and zmax
+    dl_array = z_to_dl(
+        z_array
+    )  # The luminosity distance array over the z_bin defined by zmin and zmax
+    vc_array = z_to_vc(
+        z_array
+    )  # The comoving volume array over the z_bin defined by zmin and zmax
+
+    vmax_arr = []  # Instantiate the vmax array
+    ## Begin questionable block
+    for appMag in apparent_mag:  # Q? Where does the apparent mag come from here?
+        val = VMax_eales(
+            appMag, vc_array, maglim_lo, maglim_high, omega_area
+        )  # Q? is this function correct
+        if val == None:
+            # Treat the failures, here marking them with a -99 integer
+            vmax_arr.append(-99)
+        else:
+            # Append the value to an array
+            vmax_arr.append(val)
+    vmax_arr = np.array(vmax_arr)
+    # Q? what to do about the about the failures? Maybe treat them differently?
+    ## End questionable block
+
+    phi_array = []
+    for v in range(len(lum_bin_edges) - 1):
+        binned_vmax = vmax_arr[
+            (absMag >= lum_bin_edges[v]) & (absMag < lum_bin_edges[v + 1])
+        ]
+        phi_array.append(
+            np.sum(np.reciprocal(binned_vmax)) / (lum_bin_edges[1] - lum_bin_edges[0])
+        )
+
+    return phi_array
+
+
+def VMax_eales(app_mags, vc_array, maglim_lo, maglim_high, omega_area, n_centers=1):
+    maglim_mask_lo = app_mags >= maglim_lo
+    maglim_mask_hi = app_mags <= maglim_high
+
+    if np.sum(maglim_mask_lo & maglim_mask_hi) < 0:
+        return None
+    else:
+        return (
+            (vc_array[maglim_mask_hi][-1] - vc_array[maglim_mask_lo][0])
+            * omega_area
+            / n_centers
+        )  # This isn't working ...
+
+
+def prep_vmax_quantities(zmin, zmax, cosmo):
+    """
+    Precompute redshift–distance–volume relations and spline interpolants
+    for efficient V_max calculations.
+
+    This routine constructs finely sampled arrays of redshift, luminosity
+    distance, comoving distance, and enclosed comoving volume over a specified
+    redshift interval, and builds cubic–spline interpolants that map between
+    these quantities.  These splines are intended for fast evaluation of
+    redshift limits, luminosity–distance limits, and accessible comoving
+    volumes when performing V_max and luminosity–function calculations.
+
+    Specifically, the function produces:
+
+      * Cubic–spline interpolants for converting between these quantities.
+
+    The redshift grid is sampled densely to ensure smooth and accurate spline
+    interpolation across the entire redshift range.
+
+    Parameters
+    ----------
+    zmin : float
+        Lower bound of the redshift interval.
+
+    zmax : float
+        Upper bound of the redshift interval.
+
+    cosmo : astropy.cosmology.Cosmology
+        Cosmology object used to compute distance–redshift relations.
+
+    Returns
+    -------
+
+    splines : list of scipy.interpolate.CubicSpline
+        A list of cubic–spline interpolants, in order:
+
+        - ``dl_to_z`` : maps luminosity distance → redshift
+        - ``z_to_dc`` : maps redshift → comoving distance
+        - ``z_to_dl`` : maps redshift → luminosity distance
+        - ``z_to_vc`` : maps redshift → enclosed comoving volume
+
+    Notes
+    -----
+    These interpolants are designed to accelerate repeated conversions during
+    luminosity–function and V_max calculations by avoiding repeated calls to
+    cosmological distance routines.  The dense sampling ensures that spline
+    interpolation errors are negligible compared to typical astrophysical
+    uncertainties.
+    """
+    z_array = (
+        np.linspace(zmin, zmax, int(50000 * (zmax - zmin))) * cu.redshift
+    )  # Array of redshifts
+    dl_array = (z_table).to(
+        u.Mpc, cu.redshift_distance(cosmo, kind="luminosity")
+    )  # Array of luminosity distances
+    dc_array = (z_table).to(
+        u.Mpc, cu.redshift_distance(cosmo, kind="comoving")
+    )  # Array of comoving distances
+    vc_array = 4 * np.pi / 3 * (dc_array**3)  # Array of comoving volumes
+    dl_to_z = CubicSpline(
+        dl_array, z_array
+    )  # CubicSpline of luminosity distance to redshift
+    z_to_dc = CubicSpline(
+        z_array, dc_array
+    )  # CubicSpline of redshift to comoving volume
+    z_to_dl = CubicSpline(
+        z_array, dl_array
+    )  # CubicSpline of redshift to luminosity distance
+    z_to_vc = CubicSpline(z_array, vc_array)  # CubicSpline of z to comoving volume
+
+    # arrays = [z_array, dl_array, dc_array, vc_array]
+
+    splines = [dl_to_z, z_to_dc, z_to_dl, z_to_vc]
+
+    return splines
+
+
 def luminosityFunction(
     inputData,
     inputCatalog,
@@ -753,9 +902,16 @@ def luminosityFunction(
       not apply any volume normalization, completeness correction, or Schechter
       function fitting.
     """
+    omega_area = gcr_catalog.sky_area / (
+        4 * np.pi * (180 / np.pi) ** 2
+    )  # The effective area of the galaxy catalog
+
     fig, axs = plt.subplots(
         round(z_max / z_step), 6, figsize=(24, 4 * round(z_max / z_step)), sharex=True
     )
+
+    if use_vmax:
+        splines = prep_vmax_quantities(zmin, zmax, inputCatalog.cosmology)
 
     rowIter = 0
 
@@ -793,14 +949,11 @@ def luminosityFunction(
 
             bin_num = {}
             for mag_low in np.arange(brightMag, faintMag, step=delta_mag):
-                n_gals = len(
-                    data[
-                        np.logical_and(
-                            data[columnName] > mag_low,
-                            data[columnName] <= mag_low + delta_mag,
-                        )
-                    ]
+                msk = np.logical_and(
+                    data[columnName] > mag_low,
+                    data[columnName] <= mag_low + delta_mag,
                 )
+                n_gals = len(data[msk])
 
                 bin_num[mag_low + delta_mag / 2] = n_gals
 
@@ -811,31 +964,43 @@ def luminosityFunction(
             k, v = bin_num.keys(), bin_num.values()
 
             if fit_schecter:
-                mag_low_fit = max(bin_num, key=bin_num.get)
 
-                mag_high_fit, high_value = min(
+                M_centers = np.array(list(k))
+
+                mag_dim_fit = max(bin_num, key=bin_num.get)
+
+                mag_bright_fit, bright_number = min(
                     ((k, v) for k, v in bin_num.items() if v > 0),
                     key=lambda item: item[0],
                 )
-                assert high_value > 0, f"Low value ({low_value}) not greater than zero."
+                assert (
+                    bright_number > 0
+                ), f"Low value ({low_value}) not greater than zero."
 
-                phi = np.array(list(v)) / (V_eff * inputCatalog.cosmology.h**3)
+                mask = (M_centers >= mag_bright_fit) & (M_centers <= mag_dim_fit)
 
-                M_centers = np.array(list(k))
-                phi_vals = phi
-                mask = (M_centers >= mag_high_fit) & (M_centers <= mag_low_fit)
+                ## Do the phi computation
+                if use_vmax:
+                    # Use the VMAX method
+                    # TODO - propagate the proper variables
+                    phi = phi_VMax_eales()
+                else:
+                    # Do a crude computation of phi=N/(V * h^3)
+                    phi = np.array(list(v)) / (V_eff * inputCatalog.cosmology.h**3)
+
+                ## End the phi computation
 
                 popt, pcov = curve_fit(
-                    schechter_M, M_centers[mask], phi_vals[mask], p0=p0, maxfev=maxfev
+                    schechter_M, M_centers[mask], phi[mask], p0=p0, maxfev=maxfev
                 )
 
-                M_plot = np.linspace(mag_high_fit, mag_low_fit, 400)
+                M_plot = np.linspace(mag_bright_fit, mag_dim_fit, 400)
                 ax.plot(M_plot, schechter_M(M_plot, *popt))  # Plot the fit
 
                 ax.axvline(
-                    mag_high_fit, color="red", alpha=0.6
+                    mag_bright_fit, color="red", alpha=0.6
                 )  # Plot the magnitude limits for fitting purposes
-                ax.axvline(mag_low_fit, color="red", alpha=0.6)
+                ax.axvline(mag_dim_fit, color="red", alpha=0.6)
 
                 ax.text(
                     0.65,
@@ -864,7 +1029,7 @@ def luminosityFunction(
                 ax.text(
                     0.25,
                     0.1,
-                    rf"$M_1$={mag_low_fit:0.3f}",
+                    rf"$M_1$={mag_dim_fit:0.3f}",
                     horizontalalignment="left",
                     verticalalignment="center",
                     transform=ax.transAxes,
@@ -872,7 +1037,7 @@ def luminosityFunction(
                 ax.text(
                     0.25,
                     0.2,
-                    rf"$M_2$={mag_high_fit:0.3f}",
+                    rf"$M_2$={mag_bright_fit:0.3f}",
                     horizontalalignment="left",
                     verticalalignment="center",
                     transform=ax.transAxes,
@@ -883,7 +1048,7 @@ def luminosityFunction(
                 )
                 ax.plot(k, phi, "-o")  # Plot mag vs phi
             else:
-                ax.plot(k, v, "-o")  # Plot
+                ax.plot(k, v, "-o")  # Plot raw number counts
 
             colIter += 1
         ax.text(
