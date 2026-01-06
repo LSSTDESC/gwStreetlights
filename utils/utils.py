@@ -159,6 +159,7 @@ def apply_lsst_depth_and_uniformity(
     uniformity=0.1,
     modeled=False,
     spectroscopic=False,
+    alternate_h=None,
 ):
     """
     Apply LSST survey depth, spatial uniformity, and photometric–redshift effects
@@ -272,6 +273,12 @@ def apply_lsst_depth_and_uniformity(
     data = dropFaintGalaxies(
         data, hp_uniq_ids, LSST_bands, hp_band_dict, hp_ind_label=hp_col
     )
+
+    # Apply redshift adjustment
+    if alternate_h != None:
+        data["redshift_true"] = data["redshift_true"] * (
+            alternate_h / skysimCat.cosmology.h
+        )
 
     # Apply redshift model
     if spectroscopic:
@@ -1095,7 +1102,7 @@ def getMagLimitAdjustment(sig, nside):
     return counts
 
 
-def transmute_redshift(inputRedshift, inputCosmology, alternate_h=0.5, zmax=5):
+def transmute_redshift(inputRedshift, inputCosmology, alternate_h=0.5, zmax=5, zmin=0):
     """
     Re-map redshifts under an alternative Hubble constant via luminosity-distance
     invariance.
@@ -1141,7 +1148,8 @@ def transmute_redshift(inputRedshift, inputCosmology, alternate_h=0.5, zmax=5):
     # newLuminosityDistances = newCosmology.luminosity_distance(inputRedshift_units)
 
     return d_L.to(
-        cu.redshift, cu.redshift_distance(newCosmology, kind="luminosity", zmax=zmax)
+        cu.redshift,
+        cu.redshift_distance(newCosmology, kind="luminosity", zmax=zmax, zmin=zmin),
     )
 
     # newLuminosityDistances.to(cu.redshift, cu.redshift_distance(newCosmology, kind="luminosity", zmax=5))
