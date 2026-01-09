@@ -36,11 +36,14 @@ def run_survey_diagnostics(
     skysim_catalog,
     year,
     z_max,
+    limiting_mags,
+    z_min=0,
     z_step_pz=0.01,
     z_step_lf=0.2,
     brightMag=-26,
     faintMag=-15,
     fit_schecter=False,
+    schecter_bright_mag_limit=15,
     p0=(1e-3, -22.0, -1.1),
     maxfev=50000,
     modeled=True,
@@ -120,14 +123,17 @@ def run_survey_diagnostics(
     fig_lf, axs_lf, results = luminosityFunction(
         data,
         skysim_catalog,
+        limiting_mags,
         p0=p0,
         z_max=z_max,
         z_step=z_step_lf,
+        bright_mag_limit=schecter_bright_mag_limit,
         brightMag=brightMag,
         faintMag=faintMag,
         maxfev=maxfev,
         delta_mag=delta_mag_schecter,
         fit_schecter=fit_schecter,
+        z_min=z_min,
     )
 
     # Redshift precision
@@ -280,7 +286,6 @@ def apply_lsst_depth_and_uniformity(
         data["redshift_true"] = data["redshift_true"] * (
             alternate_h / skysimCat.cosmology.h
         )
-        # TODO: change the cosmology to reflect the new value of h
 
     # Apply redshift model
     if spectroscopic:
@@ -664,74 +669,50 @@ def redshiftPrecisionPlot(
     return fig, ax
 
 
+def luminosity_distance_from_mags(appMag, absMag):
+    return (10 * u.pc) * np.power(10, (appMag - absMag) / 5)
+
+
 def phi_VMax_eales(
     omega_area,
     splines,
-    absMag,
+    absolute_mag,
     zmin,
     zmax,
     dimMag,
     brightMag,
-    delta_mag,
+    lum_bin_edges,
     number_of_zs=10000,
 ):
 
-    lum_bin_edges = np.arange(
-        dimMag, brightMag + delta_mag, step=delta_mag
-    )  # The luminosity bin edges
-
     dl_to_z, z_to_dc, z_to_dl, z_to_vc = splines
 
-    z_array = np.linspace(
-        zmin, zmax, number_of_zs
-    )  # The redshift array over the z_bin defined by zmin and zmax
-    dl_array = z_to_dl(
-        z_array
-    )  # The luminosity distance array over the z_bin defined by zmin and zmax
-    vc_array = z_to_vc(
-        z_array
-    )  # The comoving volume array over the z_bin defined by zmin and zmax
-
-    vmax_arr = []  # Instantiate the vmax array
-    ## Begin questionable block
-    for appMag in apparent_mag:  # Q? Where does the apparent mag come from here?
-        val = VMax_eales(
-            appMag, vc_array, maglim_lo, maglim_high, omega_area
-        )  # Q? is this function correct
-        if val == None:
-            # Treat the failures, here marking them with a -99 integer
-            vmax_arr.append(-99)
-        else:
-            # Append the value to an array
-            vmax_arr.append(val)
-    vmax_arr = np.array(vmax_arr)
-    # Q? what to do about the about the failures? Maybe treat them differently?
-    ## End questionable block
+    vmax_arr = np.array(
+        VMax_eales(absolute_mag, dimMag, brightMag, dl_to_z, z_to_vc, omega_area)
+    )
 
     phi_array = []
-    for v in range(len(lum_bin_edges) - 1):
-        binned_vmax = vmax_arr[
-            (absMag >= lum_bin_edges[v]) & (absMag < lum_bin_edges[v + 1])
-        ]
-        phi_array.append(
-            np.sum(np.reciprocal(binned_vmax)) / (lum_bin_edges[1] - lum_bin_edges[0])
-        )
+
+    for v in lum_bin_edges.keys():
+        binned_vmax = vmax_arr[(absolute_mag >= v[0]) & (absolute_mag < v[1])]
+
+        phi_array.append(np.sum(np.reciprocal(binned_vmax)) / (v[0] - v[1]))
 
     return phi_array
 
 
-def VMax_eales(app_mags, vc_array, maglim_lo, maglim_high, omega_area, n_centers=1):
-    maglim_mask_lo = app_mags >= maglim_lo
-    maglim_mask_hi = app_mags <= maglim_high
+def VMax_eales(
+    abs_mag, app_mag_faint, app_mag_bright, dl_to_z, z_to_vc, omega_area, n_centers=1
+):
 
-    if np.sum(maglim_mask_lo & maglim_mask_hi) < 0:
-        return None
-    else:
-        return (
-            (vc_array[maglim_mask_hi][-1] - vc_array[maglim_mask_lo][0])
-            * omega_area
-            / n_centers
-        )  # This isn't working ...
+    z_brights = dl_to_z(
+        luminosity_distance_from_mags(app_mag_faint, abs_mag)
+    )  # The z limits for the faint galaxy to be placed very close
+    z_faints = dl_to_z(
+        luminosity_distance_from_mags(app_mag_bright, abs_mag)
+    )  # The z limits for the bright galaxy to be placed very far
+
+    return (z_to_vc(z_brights) - z_to_vc(z_faints)) * omega_area / n_centers
 
 
 def prep_vmax_quantities(zmin, zmax, cosmo):
@@ -786,10 +767,10 @@ def prep_vmax_quantities(zmin, zmax, cosmo):
     z_array = (
         np.linspace(zmin, zmax, int(50000 * (zmax - zmin))) * cu.redshift
     )  # Array of redshifts
-    dl_array = (z_table).to(
+    dl_array = (z_array).to(
         u.Mpc, cu.redshift_distance(cosmo, kind="luminosity")
     )  # Array of luminosity distances
-    dc_array = (z_table).to(
+    dc_array = (z_array).to(
         u.Mpc, cu.redshift_distance(cosmo, kind="comoving")
     )  # Array of comoving distances
     vc_array = 4 * np.pi / 3 * (dc_array**3)  # Array of comoving volumes
@@ -814,7 +795,9 @@ def prep_vmax_quantities(zmin, zmax, cosmo):
 def luminosityFunction(
     inputData,
     inputCatalog,
+    limiting_mags,
     z_step=0.5,
+    bright_mag_limit=15,
     delta_mag=0.2,
     z_max=3,
     brightMag=-22.5,
@@ -825,6 +808,8 @@ def luminosityFunction(
     p0=[1e-4, -10, -1.2],
     maxfev=10000,
     fit_schecter=True,
+    use_vmax=True,
+    z_min=0,
 ):
     """
     Compute and plot binned rest–frame galaxy luminosity functions in LSST bands
@@ -902,18 +887,25 @@ def luminosityFunction(
       not apply any volume normalization, completeness correction, or Schechter
       function fitting.
     """
-    omega_area = gcr_catalog.sky_area / (
+
+    omega_area = inputCatalog.sky_area / (
         4 * np.pi * (180 / np.pi) ** 2
-    )  # The effective area of the galaxy catalog
+    )  # The solid angle subtended by the galaxy catalog
 
     fig, axs = plt.subplots(
-        round(z_max / z_step), 6, figsize=(24, 4 * round(z_max / z_step)), sharex=True
+        round(z_max / z_step),
+        len(LSST_bands),
+        figsize=(24, 4 * round(z_max / z_step)),
+        sharex=True,
     )
 
     if use_vmax:
-        splines = prep_vmax_quantities(zmin, zmax, inputCatalog.cosmology)
+        splines = prep_vmax_quantities(z_min, z_max, inputCatalog.cosmology)
 
     rowIter = 0
+    lum_bin_edges = np.arange(
+        faintMag, brightMag + delta_mag, step=delta_mag
+    )  # The luminosity bin edges in absolute mags
 
     results = {}  # The fitted results
 
@@ -923,8 +915,8 @@ def luminosityFunction(
             inputCatalog.cosmology.comoving_volume(z2)
             - inputCatalog.cosmology.comoving_volume(z1)
         ).value  # Mpc^3
-        V_eff = V * inputCatalog.sky_area / ((180 / (np.pi)) ** 2)
-        # V_eff = V * inputCatalog.sky_area / (4*np.pi)
+
+        V_eff = V * omega_area
 
         data = inputData[
             (inputData["redshift_measured"] > z1)
@@ -955,47 +947,68 @@ def luminosityFunction(
                 )
                 n_gals = len(data[msk])
 
-                bin_num[mag_low + delta_mag / 2] = n_gals
+                bin_num[(mag_low, mag_low + delta_mag)] = n_gals
 
             bad_keys = [k for k, v in bin_num.items() if v <= 0]
             for k in bad_keys:
                 bin_num.pop(k)
 
-            k, v = bin_num.keys(), bin_num.values()
+            k, v = (
+                bin_num.keys(),
+                bin_num.values(),
+            )  # k are the bin edges, v is the number of galaxies inside the bin
 
             if fit_schecter:
 
-                M_centers = np.array(list(k))
+                M_centers = np.median(np.array(list(k)), axis=1)
+                # print(f"M_centers: {M_centers}")
+                # Get the dimmest absolute magnitude bin where the galaxy count is maximized
+                mag_dim_fit = max(max(bin_num, key=bin_num.get))
 
-                mag_dim_fit = max(bin_num, key=bin_num.get)
-
+                # Get the brightest absolute magnitude bin with more than one galaxy inside of it
                 mag_bright_fit, bright_number = min(
                     ((k, v) for k, v in bin_num.items() if v > 0),
                     key=lambda item: item[0],
                 )
+                mag_bright_fit = min(mag_bright_fit)
                 assert (
                     bright_number > 0
                 ), f"Low value ({low_value}) not greater than zero."
 
-                mask = (M_centers >= mag_bright_fit) & (M_centers <= mag_dim_fit)
+                mask = np.logical_and(
+                    np.array(M_centers >= mag_bright_fit),
+                    np.array(M_centers <= mag_dim_fit),
+                )
 
-                ## Do the phi computation
+                # Do the phi computation
                 if use_vmax:
                     # Use the VMAX method
-                    # TODO - propagate the proper variables
-                    phi = phi_VMax_eales()
+                    # TODO - propagate the proper variables - done? Maybe?
+                    phi = phi_VMax_eales(
+                        omega_area,
+                        splines,
+                        data[columnName],
+                        z_min,
+                        z_max,
+                        limiting_mags[band],
+                        bright_mag_limit,
+                        bin_num,
+                    )
+                    phi = phi / (inputCatalog.cosmology.h**3)
                 else:
                     # Do a crude computation of phi=N/(V * h^3)
                     phi = np.array(list(v)) / (V_eff * inputCatalog.cosmology.h**3)
 
-                ## End the phi computation
-
+                # mask = np.logical_and(np.array(mask)[:,0],np.array(mask)[:,1])
+                mask = [x.all() for x in mask]
                 popt, pcov = curve_fit(
                     schechter_M, M_centers[mask], phi[mask], p0=p0, maxfev=maxfev
                 )
 
                 M_plot = np.linspace(mag_bright_fit, mag_dim_fit, 400)
                 ax.plot(M_plot, schechter_M(M_plot, *popt))  # Plot the fit
+
+                # print(f"mag_bright_fit: {mag_bright_fit}")
 
                 ax.axvline(
                     mag_bright_fit, color="red", alpha=0.6
@@ -1070,10 +1083,6 @@ def luminosityFunction(
             a.set_ylabel("$\phi [h^3 Mpc^{-3]}]$")
         else:
             a.set_ylabel("$N_{gals}$")
-
-    # a.xaxis.set_inverted(True)
-
-    # for a in axs[0,:]:
 
     for a in axs.flatten():
         a.grid(ls="--", which="major")
@@ -1502,6 +1511,7 @@ def GCR_filter_overlord(
     z_min=None,
     mag_scatter=0.15,
     nside=128,
+    bright_app_limit=15,
 ):
     """
     Construct a complete set of magnitude and redshift selection filters for
@@ -1554,6 +1564,9 @@ def GCR_filter_overlord(
         filters.append(
             f"mag_true_{band}_lsst_no_host_extinction<{limiting_mags[band]+band_limit_max_dict[band]}"
         )  # limiting_mags has been swapped for band_limit_max_dict here
+        filters.append(
+            f"mag_true_{band}_lsst_no_host_extinction>{bright_app_limit}"
+        )  # Bright limit
 
     # Add the redshift filter
     filters = GCR_redshift_filter(filters, z_max, z_min)
