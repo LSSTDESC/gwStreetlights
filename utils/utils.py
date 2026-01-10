@@ -670,6 +670,30 @@ def redshiftPrecisionPlot(
 
 
 def luminosity_distance_from_mags(appMag, absMag):
+    """
+    Compute luminosity distance from apparent and absolute magnitudes.
+
+    Uses the standard distance–modulus relation
+
+    .. math::
+        m - M = 5 \\log_{10}(d_L / 10\\,\\mathrm{pc})
+
+    to convert an apparent magnitude ``appMag`` and absolute magnitude
+    ``absMag`` into a luminosity distance.
+
+    Parameters
+    ----------
+    appMag : float or array-like
+        Apparent magnitude(s) of the object(s).
+
+    absMag : float or array-like
+        Absolute magnitude(s) of the object(s).
+
+    Returns
+    -------
+    dL : astropy.units.Quantity
+        Luminosity distance(s) in parsecs.
+    """
     return (10 * u.pc) * np.power(10, (appMag - absMag) / 5)
 
 
@@ -684,7 +708,51 @@ def phi_VMax_eales(
     lum_bin_edges,
     number_of_zs=10000,
 ):
+    """
+    Compute the binned luminosity function using the V_max estimator.
 
+    This routine applies the Eales V_max method to estimate the luminosity
+    function
+
+    .. math::
+        \\phi(M) = \\sum_i \\frac{1}{V_{\\max,i}}
+
+    within bins of absolute magnitude.
+
+    Parameters
+    ----------
+    omega_area : float
+        Survey solid angle in steradians.
+
+    splines : list of scipy.interpolate.CubicSpline
+        Spline interpolants returned by ``prep_vmax_quantities``, in the order:
+        ``[dl_to_z, z_to_dc, z_to_dl, z_to_vc]``.
+
+    absolute_mag : array-like
+        Absolute magnitudes of galaxies in the sample.
+
+    zmin, zmax : float
+        Redshift bounds of the survey or redshift slice.
+
+    dimMag : float
+        Faint apparent–magnitude limit of the survey.
+
+    brightMag : float
+        Bright apparent–magnitude limit of the survey.
+
+    lum_bin_edges : dict
+        Dictionary mapping ``(M_low, M_high)`` bins to galaxy counts.
+
+    number_of_zs : int, optional
+        Number of redshift samples used internally (currently unused).
+        Default is ``10000``.
+
+    Returns
+    -------
+    phi_array : numpy.ndarray
+        Estimated luminosity function values for each magnitude bin,
+        in units of Mpc⁻³ mag⁻¹ (up to factors of ``h``).
+    """
     dl_to_z, z_to_dc, z_to_dl, z_to_vc = splines
 
     vmax_arr = np.array(
@@ -704,7 +772,49 @@ def phi_VMax_eales(
 def VMax_eales(
     abs_mag, app_mag_faint, app_mag_bright, dl_to_z, z_to_vc, omega_area, n_centers=1
 ):
+    """
+    Compute the accessible comoving volume V_max for galaxies using the
+    Eales (1993) formalism.
 
+    For each galaxy of absolute magnitude ``abs_mag``, this function computes
+    the maximum and minimum redshifts at which the object would still be
+    observable within the survey apparent–magnitude limits, and evaluates
+    the corresponding accessible comoving volume:
+
+    .. math::
+        V_{\\max} = \\frac{\\Omega}{n_{\\rm centers}}
+        \\left[V_c(z_{\\rm max}) - V_c(z_{\\rm min})\\right]
+
+    where :math:`\\Omega` is the survey solid angle.
+
+    Parameters
+    ----------
+    abs_mag : array-like
+        Absolute magnitudes of the galaxies.
+
+    app_mag_faint : float
+        Faint apparent–magnitude limit of the survey.
+
+    app_mag_bright : float
+        Bright apparent–magnitude limit of the survey.
+
+    dl_to_z : scipy.interpolate.CubicSpline
+        Spline mapping luminosity distance → redshift.
+
+    z_to_vc : scipy.interpolate.CubicSpline
+        Spline mapping redshift → enclosed comoving volume.
+
+    omega_area : float
+        Survey solid angle in steradians.
+
+    n_centers : int, optional
+        Number of survey centers used to tile the sky. Default is ``1``.
+
+    Returns
+    -------
+    vmax : numpy.ndarray
+        Accessible comoving volume for each galaxy, in Mpc³.
+    """
     z_brights = dl_to_z(
         luminosity_distance_from_mags(app_mag_faint, abs_mag)
     )  # The z limits for the faint galaxy to be placed very close
