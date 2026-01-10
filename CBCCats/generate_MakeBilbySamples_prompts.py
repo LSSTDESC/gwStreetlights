@@ -37,11 +37,12 @@ priorBasePath = (
 dataDirectory = (
     "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalog_csvs"
 )
-CBCTypes = ["BBH", "NSBH"]
-# CBCTypes = ["BBH"]
+# CBCTypes = ["BBH", "NSBH"]
+CBCTypes = ["BBH"]
 alignmentTypes = ["aligned", "precessing"]
 catalogName = "skysim5000_v1.2_small"
-CBCWeights = ["UniformWeight", "StellarMassWeight", "uWeight", "rWeight", "yWeight"]
+# CBCWeights = ["UniformWeight", "StellarMassWeight", "uWeight", "rWeight", "yWeight"]
+CBCWeights = ["UniformWeight", "StellarMassWeight", "uWeight"]
 
 
 def priorSelector(alignment, CBCType):

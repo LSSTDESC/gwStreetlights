@@ -148,7 +148,11 @@ alignment = ["precessing", "aligned"]
 dataDir = "/global/u1/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalog_csvs"
 # pd.read_csv()
 # msk = [(x.endswith("withSNRs_gwtc4_thirdPass.csv") and x.__contains__("BBH")) or (x.endswith("withSNRs_gwtc4_secondPass.csv") and x.__contains__("NSBH")) for x in os.listdir(dataDir)]
-msk = [x.endswith("fourthPass.csv") for x in os.listdir(dataDir)]
+
+msk = [(x.endswith("thirdPass.csv") and x.__contains__("NSBH")) for x in os.listdir(dataDir)]
+# msk = [(x.endswith("fifthPass.csv") and x.__contains__("BBH")) for x in os.listdir(dataDir)]
+
+
 # To include NSBH's, add an or statement to the second conditional
 files = np.sort(
     np.array(os.listdir(dataDir))[msk]
@@ -187,9 +191,9 @@ for f in files:
         # spin=alignment # Choose spins to be aligned (1) or misaligned (0)
         # label = makeLabel(parentWeighting+","+cbcWeighting,fullItem,alignment)
         if CBCType == "BBH":
-            _pass = "_fourthPass"
+            _pass = "_fifthPass"
         elif CBCType == "NSBH":
-            _pass = "_secondPass"
+            _pass = "_thirdPass"
         else:
             raise ValueError(f"CBCType ({CBCType}) is not one of the accepted types")
         label = makeLabel(
