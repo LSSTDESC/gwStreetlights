@@ -51,6 +51,7 @@ def run_survey_diagnostics(
     low_mag=24.5,
     NSIDE=None,
     delta_mag_schecter=0.2,
+    vmax=True,
 ):
     """
     Run the standard diagnostics suite on a processed SkySim catalog.
@@ -133,6 +134,7 @@ def run_survey_diagnostics(
         maxfev=maxfev,
         delta_mag=delta_mag_schecter,
         fit_schecter=fit_schecter,
+        use_vmax=vmax,
         z_min=z_min,
     )
 
@@ -1193,9 +1195,13 @@ def luminosityFunction(
                 results[(z1, z2, band)] = dict(
                     phi_star=popt[0], M_star=popt[1], alpha=popt[2], cov=pcov
                 )
-                ax.plot(k, phi, "-o")  # Plot mag vs phi
+
+                k_centers = np.median(np.array(list(k)), axis=1)
+
+                ax.plot(k_centers, phi, "-o")  # Plot mag vs phi
             else:
-                ax.plot(k, v, "-o")  # Plot raw number counts
+                k_centers = np.median(np.array(list(k)), axis=1)
+                ax.plot(k_centers, v, "-o")  # Plot raw number counts
 
             colIter += 1
         ax.text(
