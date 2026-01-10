@@ -149,7 +149,10 @@ dataDir = "/global/u1/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalog
 # pd.read_csv()
 # msk = [(x.endswith("withSNRs_gwtc4_thirdPass.csv") and x.__contains__("BBH")) or (x.endswith("withSNRs_gwtc4_secondPass.csv") and x.__contains__("NSBH")) for x in os.listdir(dataDir)]
 
-msk = [(x.endswith("thirdPass.csv") and x.__contains__("NSBH")) for x in os.listdir(dataDir)]
+msk = [
+    (x.endswith("thirdPass.csv") and x.__contains__("NSBH"))
+    for x in os.listdir(dataDir)
+]
 # msk = [(x.endswith("fifthPass.csv") and x.__contains__("BBH")) for x in os.listdir(dataDir)]
 
 

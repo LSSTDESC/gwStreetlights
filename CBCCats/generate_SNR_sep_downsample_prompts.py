@@ -71,11 +71,11 @@ networkThresholds = [9, 8]
 # cbcWeights = ["UniformWeight","StellarMassWeight", "uWeight"]
 # sampNumbers = [50]  # Modified for testing
 # signalDurations = [8]
-# networkThresholds = [9] 
+# networkThresholds = [9]
 
 # This is for the NSBH only prompts
 cbcTypes = ["NSBH"]
-cbcWeights = ["rWeight","yWeight"]
+cbcWeights = ["rWeight", "yWeight"]
 sampNumbers = [10]
 signalDurations = [32]
 networkThresholds = [9]
