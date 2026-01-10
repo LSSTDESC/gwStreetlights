@@ -922,24 +922,26 @@ def luminosityFunction(
     z_min=0,
 ):
     """
-    Compute and plot binned rest–frame galaxy luminosity functions in LSST bands
-    over a sequence of redshift slices.
+    Compute, fit, and plot rest–frame galaxy luminosity functions in LSST bands
+    across a sequence of redshift slices.
 
     This routine partitions an input galaxy catalog into contiguous redshift
-    bins of width ``z_step`` between :math:`z=0` and ``z_max``. For each redshift
-    slice, it computes a simple binned luminosity function in rest–frame absolute
-    magnitude for each of the six LSST bands (u, g, r, i, z, y), and produces a
-    multi–panel figure showing the number of galaxies per magnitude bin.
+    bins of width ``z_step`` between ``z_min`` and ``z_max``.  For each redshift
+    slice and for each LSST band (u, g, r, i, z, y), it constructs binned
+    luminosity functions in absolute magnitude and optionally estimates the
+    differential luminosity function using the V_max estimator.  When enabled,
+    a Schechter function is fitted to the binned luminosity function within
+    adaptive magnitude limits.
 
-    The luminosity functions are plotted as :math:`N(M)` (counts per bin) on a
-    logarithmic y–axis, with the magnitude axis inverted so that brighter objects
-    appear to the left, following standard astronomical convention.
+    The resulting luminosity functions and fits are visualized in a multi–panel
+    figure with one row per redshift slice and one column per LSST band.
 
     Parameters
     ----------
     inputData : pandas.DataFrame
-        Catalog of galaxies containing at minimum a ``"redshift"`` column and
-        the following rest–frame magnitude columns:
+        Galaxy catalog containing at minimum a ``"redshift_measured"`` column
+        and the rest–frame absolute magnitude columns:
+
         - ``"Mag_true_u_lsst_z0_no_host_extinction"``
         - ``"Mag_true_g_lsst_z0_no_host_extinction"``
         - ``"Mag_true_r_lsst_z0_no_host_extinction"``
@@ -948,56 +950,78 @@ def luminosityFunction(
         - ``"Mag_true_Y_lsst_z0_no_host_extinction"``
 
     inputCatalog : GCRCatalogs.cosmodc2.SkySim5000GalaxyCatalog
-        The input catalog of the associated data
+        Catalog object providing cosmology and survey geometry information.
+
+    limiting_mags : dict
+        Dictionary mapping each LSST band to its faint apparent–magnitude limit.
+        Used to compute V_max redshift bounds.
 
     z_step : float, optional
-        Width of the redshift bins. Default is ``0.5``.
+        Width of the redshift slices. Default is ``0.5``.
+
+    bright_mag_limit : float, optional
+        Bright apparent–magnitude limit of the survey. Default is ``15``.
 
     delta_mag : float, optional
-        Width of the absolute–magnitude bins used to construct the luminosity
-        functions. Default is ``0.2``.
+        Width of the absolute–magnitude bins. Default is ``0.2``.
 
     z_max : float, optional
-        Maximum redshift to consider. Redshift bins are generated from
-        ``z = 0`` to ``z_max`` in steps of ``z_step``. Default is ``3``.
+        Maximum redshift to consider. Default is ``3``.
 
     brightMag : float, optional
-        Bright (more negative) limit of the magnitude range to be binned.
+        Bright (more negative) absolute–magnitude bound for binning.
         Default is ``-22.5``.
 
     faintMag : float, optional
-        Faint limit of the magnitude range to be binned. Default is ``-15.4``.
+        Faint absolute–magnitude bound for binning.
+        Default is ``-15.4``.
 
     fname : str, optional
-        Filename used when saving the output figure. Default is
-        ``"SkySimSchecter.jpg"``.
+        Filename for saving the output figure.
 
     tight : bool, optional
-        If True, apply ``fig.tight_layout()`` before saving/showing the figure.
-        Default is True.
+        Apply ``tight_layout`` to the figure before saving/showing.
 
     save : bool, optional
-        If True, save the figure to disk in the current working directory using
-        ``fname``. Default is True.
+        Save the figure to disk if True.
+
+    p0 : sequence, optional
+        Initial guess ``[phi_star, M_star, alpha]`` for Schechter–function fitting.
+
+    maxfev : int, optional
+        Maximum number of function evaluations for the non–linear fit.
+
+    fit_schecter : bool, optional
+        If True, fit a Schechter function to each luminosity function.
+
+    use_vmax : bool, optional
+        If True, estimate the luminosity function using the V_max estimator.
+        Otherwise, uses a simple ``phi = N / (V_eff h^3)`` estimator.
+
+    z_min : float, optional
+        Minimum redshift of the analysis volume.
 
     Returns
     -------
     fig : matplotlib.figure.Figure
-        The generated matplotlib Figure object.
+        The generated multi–panel luminosity–function figure.
 
     axs : numpy.ndarray of matplotlib.axes.Axes
-        Array of Axes objects with shape ``(N_z_bins, 6)``, where ``N_z_bins``
-        is the number of redshift slices.
+        Array of Axes with shape ``(N_z_bins, 6)``.
+
+    results : dict
+        Dictionary keyed by ``(z_low, z_high, band)`` containing fitted
+        Schechter parameters and covariance matrices:
+        ``{'phi_star', 'M_star', 'alpha', 'cov'}``.
 
     Notes
     -----
-    - The resulting figure contains one row per redshift bin and six columns
-      corresponding to the LSST u, g, r, i, z, and y bands.
-    - This implementation computes raw number counts per magnitude bin; it does
-      not apply any volume normalization, completeness correction, or Schechter
-      function fitting.
+    - When ``use_vmax=True``, luminosity functions are computed via the
+      Eales (1993) V_max formalism and normalized by ``h^3``.
+    - Schechter fits are performed only over magnitude ranges where the
+      binned luminosity function is nonzero and maximized in the faintest bin.
+    - All magnitudes are assumed to be rest–frame z=0 absolute magnitudes.
     """
-
     omega_area = inputCatalog.sky_area / (
         4 * np.pi * (180 / np.pi) ** 2
     )  # The solid angle subtended by the galaxy catalog
