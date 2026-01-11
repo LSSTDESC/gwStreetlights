@@ -694,9 +694,11 @@ def luminosity_distance_from_mags(appMag, absMag):
     Returns
     -------
     dL : astropy.units.Quantity
-        Luminosity distance(s) in parsecs.
+        Luminosity distance(s) in Megaparsecs.
     """
-    return (10 * u.pc) * np.power(10, (appMag - absMag) / 5)
+    return (
+        (10 * u.pc) * np.power(10, (appMag - absMag) / 5) * (1 / 1000000)
+    )  # To convert to Mpc
 
 
 def phi_VMax_eales(
@@ -708,7 +710,6 @@ def phi_VMax_eales(
     dimMag,
     brightMag,
     lum_bin_edges,
-    number_of_zs=10000,
 ):
     """
     Compute the binned luminosity function using the V_max estimator.
@@ -745,10 +746,6 @@ def phi_VMax_eales(
     lum_bin_edges : dict
         Dictionary mapping ``(M_low, M_high)`` bins to galaxy counts.
 
-    number_of_zs : int, optional
-        Number of redshift samples used internally (currently unused).
-        Default is ``10000``.
-
     Returns
     -------
     phi_array : numpy.ndarray
@@ -757,22 +754,35 @@ def phi_VMax_eales(
     """
     dl_to_z, z_to_dc, z_to_dl, z_to_vc = splines
 
-    vmax_arr = np.array(
-        VMax_eales(absolute_mag, dimMag, brightMag, dl_to_z, z_to_vc, omega_area)
+    vmax_arr, msk = np.array(
+        VMax_eales(
+            absolute_mag, dimMag, brightMag, dl_to_z, z_to_vc, omega_area, zmin, zmax
+        )
     )
 
     phi_array = []
 
     for v in lum_bin_edges.keys():
-        binned_vmax = vmax_arr[(absolute_mag >= v[0]) & (absolute_mag < v[1])]
+        binned_vmax = vmax_arr[
+            (absolute_mag >= v[0]) & (absolute_mag < v[1]) & (np.array(msk))
+        ]
+        # binned_vmax = vmax_arr[(absolute_mag >= v[0]) & (absolute_mag < v[1])]
 
-        phi_array.append(np.sum(np.reciprocal(binned_vmax)) / (v[0] - v[1]))
+        phi_array.append(np.sum(np.reciprocal(binned_vmax)) / (v[1] - v[0]))
 
     return phi_array
 
 
 def VMax_eales(
-    abs_mag, app_mag_faint, app_mag_bright, dl_to_z, z_to_vc, omega_area, n_centers=1
+    abs_mag,
+    app_mag_faint,
+    app_mag_bright,
+    dl_to_z,
+    z_to_vc,
+    omega_area,
+    z_1,
+    z_2,
+    n_centers=1,
 ):
     """
     Compute the accessible comoving volume V_max for galaxies using the
@@ -817,14 +827,28 @@ def VMax_eales(
     vmax : numpy.ndarray
         Accessible comoving volume for each galaxy, in Mpc³.
     """
-    z_brights = dl_to_z(
-        luminosity_distance_from_mags(app_mag_faint, abs_mag)
-    )  # The z limits for the faint galaxy to be placed very close
+
+    dl_for_faint = luminosity_distance_from_mags(app_mag_bright, abs_mag)
     z_faints = dl_to_z(
-        luminosity_distance_from_mags(app_mag_bright, abs_mag)
+        dl_for_faint
+    )  # The z limits for the faint galaxy to be placed very close
+    dl_for_bright = luminosity_distance_from_mags(app_mag_faint, abs_mag)
+    z_brights = dl_to_z(
+        dl_for_bright
     )  # The z limits for the bright galaxy to be placed very far
 
-    return (z_to_vc(z_brights) - z_to_vc(z_faints)) * omega_area / n_centers
+    # if the z_bright or z_faint are outside of the redshift bin then the edges of the bin set the available volume
+    z_gal_min = np.maximum(np.full(np.shape(z_faints), z_1), z_brights)
+    z_gal_max = np.minimum(np.full(np.shape(z_brights), z_2), z_faints)
+
+    # you should also have a catch for galaxies where z_min>z_max after that step, because I think the can happen. In that case just don't count that galaxy
+    # SM: I think you mean z_faint>z_max? that should be handled by things that come before
+
+    msk = (z_1 < z_gal_min) & (z_gal_min < z_2) & (z_1 < z_gal_max) & (z_gal_max < z_2)
+
+    VMax = (z_to_vc(z_gal_min) - z_to_vc(z_gal_max)) * omega_area / n_centers
+
+    return VMax, msk
 
 
 def prep_vmax_quantities(zmin, zmax, cosmo):
@@ -896,8 +920,6 @@ def prep_vmax_quantities(zmin, zmax, cosmo):
         z_array, dl_array
     )  # CubicSpline of redshift to luminosity distance
     z_to_vc = CubicSpline(z_array, vc_array)  # CubicSpline of z to comoving volume
-
-    # arrays = [z_array, dl_array, dc_array, vc_array]
 
     splines = [dl_to_z, z_to_dc, z_to_dl, z_to_vc]
 
@@ -1097,7 +1119,6 @@ def luminosityFunction(
             if fit_schecter:
 
                 M_centers = np.median(np.array(list(k)), axis=1)
-                # print(f"M_centers: {M_centers}")
                 # Get the dimmest absolute magnitude bin where the galaxy count is maximized
                 mag_dim_fit = max(max(bin_num, key=bin_num.get))
 
@@ -1130,21 +1151,22 @@ def luminosityFunction(
                         bright_mag_limit,
                         bin_num,
                     )
-                    phi = phi / (inputCatalog.cosmology.h**3)
                 else:
                     # Do a crude computation of phi=N/(V * h^3)
                     phi = np.array(list(v)) / (V_eff * inputCatalog.cosmology.h**3)
 
-                # mask = np.logical_and(np.array(mask)[:,0],np.array(mask)[:,1])
-                mask = [x.all() for x in mask]
+                mask = np.array([x.all() for x in mask])
+
                 popt, pcov = curve_fit(
-                    schechter_M, M_centers[mask], phi[mask], p0=p0, maxfev=maxfev
+                    schechter_M,
+                    M_centers[mask],
+                    np.array(phi)[mask],
+                    p0=p0,
+                    maxfev=maxfev,
                 )
 
                 M_plot = np.linspace(mag_bright_fit, mag_dim_fit, 400)
                 ax.plot(M_plot, schechter_M(M_plot, *popt))  # Plot the fit
-
-                # print(f"mag_bright_fit: {mag_bright_fit}")
 
                 ax.axvline(
                     mag_bright_fit, color="red", alpha=0.6
@@ -1175,6 +1197,7 @@ def luminosityFunction(
                     verticalalignment="center",
                     transform=ax.transAxes,
                 )
+
                 ax.text(
                     0.25,
                     0.1,
@@ -1220,7 +1243,8 @@ def luminosityFunction(
 
     for a in axs[:, 0]:
         if fit_schecter:
-            a.set_ylabel("$\phi [h^3 Mpc^{-3]}]$")
+            # a.set_ylabel("$\phi [h^3 Mpc^{-3]}]$")
+            a.set_ylabel("$\phi [Mpc^{-3]}]$")
         else:
             a.set_ylabel("$N_{gals}$")
 
