@@ -116,10 +116,6 @@ def run_survey_diagnostics(
     mag_lim_check_result : dict
         Output of ``mag_lim_checker`` verifying per–pixel magnitude–limit compliance.
     """
-
-    # P(z)
-    fig_pz, ax_pz = p_z_distribution(data, z_max=z_max, z_step=z_step_pz)
-
     # Luminosity functions
     fig_lf, axs_lf, results = luminosityFunction(
         data,
@@ -137,6 +133,9 @@ def run_survey_diagnostics(
         use_vmax=vmax,
         z_min=z_min,
     )
+
+    # P(z)
+    fig_pz, ax_pz = p_z_distribution(data, z_max=z_max, z_step=z_step_pz)
 
     # Redshift precision
     fig_zprec, ax_zprec = redshiftPrecisionPlot(data, year, modeled=modeled)
@@ -671,7 +670,7 @@ def redshiftPrecisionPlot(
     return fig, ax
 
 
-def luminosity_distance_from_mags(appMag, absMag):
+def luminosity_distance_from_mags(appMag, absMag, out_unit=u.pc):
     """
     Compute luminosity distance from apparent and absolute magnitudes.
 
@@ -694,11 +693,16 @@ def luminosity_distance_from_mags(appMag, absMag):
     Returns
     -------
     dL : astropy.units.Quantity
-        Luminosity distance(s) in Megaparsecs.
+        Luminosity distance(s) in parsecs.
     """
-    return (
-        (10 * u.pc) * np.power(10, (appMag - absMag) / 5) * (1 / 1000000)
-    )  # To convert to Mpc
+    distance_modulus = appMag - absMag
+    lum_dist = 10 ** (distance_modulus / 5 + 1)
+
+    return lum_dist * u.pc.to(out_unit)
+
+    # return (
+    #     (10 * (w1 / 1000000)) * 10**((appMag - absMag) / 5)
+    # )  # To convert to Mpc
 
 
 def phi_VMax_eales(
@@ -754,21 +758,25 @@ def phi_VMax_eales(
     """
     dl_to_z, z_to_dc, z_to_dl, z_to_vc = splines
 
-    vmax_arr, msk = np.array(
-        VMax_eales(
-            absolute_mag, dimMag, brightMag, dl_to_z, z_to_vc, omega_area, zmin, zmax
-        )
+    vmax_arr, msk = VMax_eales(
+        absolute_mag, dimMag, brightMag, dl_to_z, z_to_vc, omega_area, zmin, zmax
     )
+
+    abs_mag_masked = absolute_mag[msk]
+    vmax_masked = vmax_arr[msk]
 
     phi_array = []
 
     for v in lum_bin_edges.keys():
-        binned_vmax = vmax_arr[
-            (absolute_mag >= v[0]) & (absolute_mag < v[1]) & (np.array(msk))
-        ]
-        # binned_vmax = vmax_arr[(absolute_mag >= v[0]) & (absolute_mag < v[1])]
+        mag_mask = (abs_mag_masked >= v[0]) & (abs_mag_masked < v[1])
 
-        phi_array.append(np.sum(np.reciprocal(binned_vmax)) / (v[1] - v[0]))
+        binned_vmax = vmax_masked[mag_mask]
+        if np.shape([]) == np.shape(
+            binned_vmax
+        ):  # If there are no galaxies in that luminosity bin
+            phi_array.append(0)  # Append zero to the phi array
+        else:
+            phi_array.append(np.sum(np.reciprocal(binned_vmax)) / (v[1] - v[0]))
 
     return phi_array
 
@@ -827,28 +835,66 @@ def VMax_eales(
     vmax : numpy.ndarray
         Accessible comoving volume for each galaxy, in Mpc³.
     """
-
-    dl_for_faint = luminosity_distance_from_mags(app_mag_bright, abs_mag)
+    dl_for_faint = luminosity_distance_from_mags(
+        app_mag_bright, abs_mag, out_unit=u.Mpc
+    )
     z_faints = dl_to_z(
         dl_for_faint
-    )  # The z limits for the faint galaxy to be placed very close
-    dl_for_bright = luminosity_distance_from_mags(app_mag_faint, abs_mag)
+    )  # The z limits for the faint galaxy to be placed at the bright end limit
+
+    dl_for_bright = luminosity_distance_from_mags(
+        app_mag_faint, abs_mag, out_unit=u.Mpc
+    )
     z_brights = dl_to_z(
         dl_for_bright
-    )  # The z limits for the bright galaxy to be placed very far
+    )  # The z limits for the bright galaxy to be placed at the faint end limit
 
-    # if the z_bright or z_faint are outside of the redshift bin then the edges of the bin set the available volume
-    z_gal_min = np.maximum(np.full(np.shape(z_faints), z_1), z_brights)
-    z_gal_max = np.minimum(np.full(np.shape(z_brights), z_2), z_faints)
+    msk1_bright = (
+        z_brights > z_2
+    )  # If bright galaxy limit is outside of the redshift bin
+    z_brights[msk1_bright] = (
+        z_2  # Set the maximum accessible volume to the upper edge of the redshift bin
+    )
 
-    # you should also have a catch for galaxies where z_min>z_max after that step, because I think the can happen. In that case just don't count that galaxy
-    # SM: I think you mean z_faint>z_max? that should be handled by things that come before
+    msk1_faint = z_faints < z_1  # If faint galaxy limit is outside of the redshift bin
+    z_faints[msk1_faint] = (
+        z_1  # Set the maximum accessible volume to the lower edge of the redshift bin
+    )
 
-    msk = (z_1 < z_gal_min) & (z_gal_min < z_2) & (z_1 < z_gal_max) & (z_gal_max < z_2)
+    msk2_bright = np.logical_or(
+        z_brights < z_1, z_brights > z_2
+    )  # If the faint galaxy redshifts are outside of the redshift bin
 
-    VMax = (z_to_vc(z_gal_min) - z_to_vc(z_gal_max)) * omega_area / n_centers
+    msk2_faint = np.logical_or(
+        z_faints < z_1, z_faints > z_2
+    )  # If the faint galaxy redshifts are outside of the redshift bin
 
-    return VMax, msk
+    composite_mask = np.logical_or(
+        msk2_bright, msk2_faint
+    )  # This is the rejection mask
+    composite_mask_accept = ~composite_mask  # This is the acceptance mask
+
+    assert (
+        z_faints[composite_mask_accept] < z_brights[composite_mask_accept]
+    ).all(), f"Condition z_faints>z_brights not satisfied for {z_1}<z<{z_2} bin"
+
+    VMax = (
+        (z_to_vc(z_brights) - z_to_vc(z_faints)) * omega_area / n_centers
+    )  # Compute vmax
+
+    return VMax, composite_mask_accept
+
+
+def printStats(inputArr, name):
+    print(
+        f"min, median, max, std of {name}: {np.min(inputArr):0.2f}, {np.median(inputArr):0.2f}, {np.max(inputArr):0.2f}, {np.std(inputArr):0.2f}"
+    )
+    return
+
+
+def printContents(inputArr, name):
+    print(f"contents of {name}: {np.unique(inputArr,return_counts=True)}")
+    return
 
 
 def prep_vmax_quantities(zmin, zmax, cosmo):
@@ -1145,8 +1191,8 @@ def luminosityFunction(
                         omega_area,
                         splines,
                         data[columnName],
-                        z_min,
-                        z_max,
+                        z1,
+                        z2,
                         limiting_mags[band],
                         bright_mag_limit,
                         bin_num,
@@ -1154,6 +1200,11 @@ def luminosityFunction(
                 else:
                     # Do a crude computation of phi=N/(V * h^3)
                     phi = np.array(list(v)) / (V_eff * inputCatalog.cosmology.h**3)
+
+                k_centers = np.median(
+                    np.array(list(k)), axis=1
+                )  # Compute absolute mag bin centers
+                ax.plot(k_centers, phi, "-o")  # Plot mag vs phi
 
                 mask = np.array([x.all() for x in mask])
 
@@ -1219,9 +1270,6 @@ def luminosityFunction(
                     phi_star=popt[0], M_star=popt[1], alpha=popt[2], cov=pcov
                 )
 
-                k_centers = np.median(np.array(list(k)), axis=1)
-
-                ax.plot(k_centers, phi, "-o")  # Plot mag vs phi
             else:
                 k_centers = np.median(np.array(list(k)), axis=1)
                 ax.plot(k_centers, v, "-o")  # Plot raw number counts
