@@ -30,6 +30,35 @@ for band, eTime in zip(LSST_bands, expTimes):
     eTime_dict[band] = eTime
 
 
+def schecterEvolutionPlot(res, tight=True, save=False, fname=None):
+    fig, axs = plt.subplots(3, figsize=[6, 4 * 3])
+    for b in LSST_bands:
+        alpha_arr, M_star_arr, phi_star_arr, redshift_arr = [], [], [], []
+        for k in res.keys():
+            lum_bin = np.median([k[0], k[1]])
+            band = k[2]
+            if k[2] == b:
+                phi_star_arr.append(res[k]["phi_star"])
+                M_star_arr.append(res[k]["M_star"])
+                alpha_arr.append(res[k]["alpha"])
+                redshift_arr.append(np.median([k[0], k[1]]))
+
+        axs[0].plot(redshift_arr, phi_star_arr, "-o", label=f"{b} band")
+        axs[1].plot(redshift_arr, M_star_arr, "-o", label=f"{b} band")
+        axs[2].plot(redshift_arr, alpha_arr, "-o", label=f"{b} band")
+
+    axs[0].set_xlabel("$z$")
+    axs[0].legend(ncols=2)
+    axs[0].set_ylabel("$\phi*$")
+    axs[1].set_ylabel("$M*$")
+    axs[2].set_ylabel(r"$\alpha$")
+    if tight:
+        fig.tight_layout()
+    if save:
+        fig.savefig(fname)
+    return fig, axs
+
+
 def run_survey_diagnostics(
     data,
     hp_band_dict,
@@ -122,6 +151,7 @@ def run_survey_diagnostics(
         skysim_catalog,
         limiting_mags,
         p0=p0,
+        z_min=z_min,
         z_max=z_max,
         z_step=z_step_lf,
         bright_mag_limit=schecter_bright_mag_limit,
@@ -131,8 +161,8 @@ def run_survey_diagnostics(
         delta_mag=delta_mag_schecter,
         fit_schecter=fit_schecter,
         use_vmax=vmax,
-        z_min=z_min,
     )
+    fig_schec_evo, axs_schec_evo = schecterEvolutionPlot(results)
 
     # P(z)
     fig_pz, ax_pz = p_z_distribution(data, z_max=z_max, z_step=z_step_pz)
@@ -149,8 +179,14 @@ def run_survey_diagnostics(
     if NSIDE is not None:
         mag_lim_check_result = mag_lim_checker(data, hp_band_dict, NSIDE)
 
-    figs = [fig_pz, fig_lf, fig_zprec, fig_uni]
-    axes = [ax_pz, axs_lf, ax_zprec, ax_uni]
+    figs = [
+        fig_lf,
+        fig_schec_evo,
+        fig_pz,
+        fig_zprec,
+        fig_uni,
+    ]
+    axes = [axs_lf, axs_schec_evo, ax_pz, ax_zprec, ax_uni]
 
     return results, mag_lim_check_result, figs, axes
 
@@ -1099,7 +1135,7 @@ def luminosityFunction(
     fig, axs = plt.subplots(
         round(z_max / z_step),
         len(LSST_bands),
-        figsize=(24, 4 * round(z_max / z_step)),
+        figsize=(4 * len(LSST_bands), 4 * round(z_max / z_step)),
         sharex=True,
     )
 
@@ -1113,7 +1149,7 @@ def luminosityFunction(
 
     results = {}  # The fitted results
 
-    for z_lower in np.arange(0, z_max, step=z_step):
+    for z_lower in np.arange(z_min, z_max + z_step, step=z_step):
         z1, z2 = z_lower, z_lower + z_step
         V = (
             inputCatalog.cosmology.comoving_volume(z2)
@@ -1278,7 +1314,7 @@ def luminosityFunction(
         ax.text(
             0.25,
             0.3,
-            f"{z_lower:0.1f}<z<{z_lower+z_step:0.1f}",
+            f"{z_lower:0.2f}<z<{z_lower+z_step:0.2f}",
             horizontalalignment="left",
             verticalalignment="center",
             transform=ax.transAxes,
