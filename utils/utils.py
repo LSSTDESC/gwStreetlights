@@ -19,6 +19,11 @@ visits_per_yr = (
     np.array([56, 74, 184, 187, 166, 171]) / 10
 )  # visits per year in u-g-r-i-z-y
 
+saturation = [14.7, 15.7, 15.8, 15.8, 15.3, 13.9]  # CCD saturation in mags, per band
+band_saturation = {}
+for band, sat in zip(LSST_bands, saturation):
+    band_saturation[band] = sat
+
 visits_dict = {}
 for band, vis in zip(LSST_bands, visits_per_yr):
     visits_dict[band] = vis
@@ -72,7 +77,6 @@ def run_survey_diagnostics(
     brightMag=-26,
     faintMag=-15,
     fit_schecter=False,
-    schecter_bright_mag_limit=15,
     p0=(1e-3, -22.0, -1.1),
     maxfev=50000,
     modeled=True,
@@ -154,7 +158,6 @@ def run_survey_diagnostics(
         z_min=z_min,
         z_max=z_max,
         z_step=z_step_lf,
-        bright_mag_limit=schecter_bright_mag_limit,
         brightMag=brightMag,
         faintMag=faintMag,
         maxfev=maxfev,
@@ -1013,7 +1016,6 @@ def luminosityFunction(
     inputCatalog,
     limiting_mags,
     z_step=0.5,
-    bright_mag_limit=15,
     delta_mag=0.2,
     z_max=3,
     brightMag=-22.5,
@@ -1064,9 +1066,6 @@ def luminosityFunction(
 
     z_step : float, optional
         Width of the redshift slices. Default is ``0.5``.
-
-    bright_mag_limit : float, optional
-        Bright apparent–magnitude limit of the survey. Default is ``15``.
 
     delta_mag : float, optional
         Width of the absolute–magnitude bins. Default is ``0.2``.
@@ -1133,9 +1132,9 @@ def luminosityFunction(
     )  # The solid angle subtended by the galaxy catalog
 
     fig, axs = plt.subplots(
-        round(z_max / z_step),
+        round((z_max - z_min) / z_step),
         len(LSST_bands),
-        figsize=(4 * len(LSST_bands), 4 * round(z_max / z_step)),
+        figsize=(4 * len(LSST_bands), 4 * round((z_max - z_min) / z_step)),
         sharex=True,
     )
 
@@ -1149,7 +1148,7 @@ def luminosityFunction(
 
     results = {}  # The fitted results
 
-    for z_lower in np.arange(z_min, z_max + z_step, step=z_step):
+    for z_lower in np.arange(z_min, z_max, step=z_step):
         z1, z2 = z_lower, z_lower + z_step
         V = (
             inputCatalog.cosmology.comoving_volume(z2)
@@ -1230,7 +1229,7 @@ def luminosityFunction(
                         z1,
                         z2,
                         limiting_mags[band],
-                        bright_mag_limit,
+                        band_saturation[band],
                         bin_num,
                     )
                 else:
