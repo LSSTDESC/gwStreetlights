@@ -1221,7 +1221,6 @@ def luminosityFunction(
                 # Do the phi computation
                 if use_vmax:
                     # Use the VMAX method
-                    # TODO - propagate the proper variables - done? Maybe?
                     phi = phi_VMax_eales(
                         omega_area,
                         splines,
@@ -1232,6 +1231,7 @@ def luminosityFunction(
                         band_saturation[band],
                         bin_num,
                     )
+
                 else:
                     # Do a crude computation of phi=N/(V * h^3)
                     phi = np.array(list(v)) / (V_eff * inputCatalog.cosmology.h**3)
@@ -1239,7 +1239,6 @@ def luminosityFunction(
                 k_centers = np.median(
                     np.array(list(k)), axis=1
                 )  # Compute absolute mag bin centers
-                ax.plot(k_centers, phi, "-o")  # Plot mag vs phi
 
                 mask = np.array([x.all() for x in mask])
 
@@ -1252,72 +1251,64 @@ def luminosityFunction(
                 )
 
                 M_plot = np.linspace(mag_bright_fit, mag_dim_fit, 400)
-                ax.plot(M_plot, schechter_M(M_plot, *popt))  # Plot the fit
+
+                # Now do the rescaling
+                h_cubed = np.power(inputCatalog.cosmology.h, 3)
+                popt[0] = popt[0] / h_cubed
+
+                ax.plot(
+                    M_plot, schechter_M(M_plot, *popt)
+                )  # Plot the fit, rescaled here
+                ax.plot(
+                    k_centers, np.array(phi) / h_cubed, "-o"
+                )  # Plot mag vs phi, rescaled to h^3
 
                 ax.axvline(
                     mag_bright_fit, color="red", alpha=0.6
                 )  # Plot the magnitude limits for fitting purposes
                 ax.axvline(mag_dim_fit, color="red", alpha=0.6)
 
-                ax.text(
-                    0.65,
-                    0.3,
-                    rf"$\phi_*$ = {popt[0]:0.1E}",
-                    horizontalalignment="left",
-                    verticalalignment="center",
-                    transform=ax.transAxes,
-                )
-                ax.text(
-                    0.65,
-                    0.2,
-                    rf"$M_*$={popt[1]:0.3f}",
-                    horizontalalignment="left",
-                    verticalalignment="center",
-                    transform=ax.transAxes,
-                )
-                ax.text(
-                    0.65,
-                    0.1,
-                    rf"$\alpha$={popt[2]:0.3f}",
-                    horizontalalignment="left",
-                    verticalalignment="center",
-                    transform=ax.transAxes,
-                )
+                # Reporting values, formatting
+                fitTxt = ""
+                if colIter == 0:
+                    fitTxt += f"{z_lower:0.2f}<z<{z_lower+z_step:0.2f}"
+                    fitTxt += "\n"
+                labels = [rf"\phi^*", rf"M^* - 5 log(h)", rf"\alpha", rf"M_1", rf"M_2"]
+                quantities = [
+                    popt[0] * 10**2,
+                    popt[1] - 5 * np.log10(inputCatalog.cosmology.h),
+                    popt[2],
+                    mag_dim_fit,
+                    mag_bright_fit,
+                ]
+
+                for t, label in zip(quantities, labels):
+                    fitTxt += rf"${label}$ = {t:.2f}"
+                    if label != labels[-1]:
+                        fitTxt += "\n"
 
                 ax.text(
-                    0.25,
-                    0.1,
-                    rf"$M_1$={mag_dim_fit:0.3f}",
+                    0.4,
+                    0.19,
+                    fitTxt,
                     horizontalalignment="left",
                     verticalalignment="center",
                     transform=ax.transAxes,
-                )
-                ax.text(
-                    0.25,
-                    0.2,
-                    rf"$M_2$={mag_bright_fit:0.3f}",
-                    horizontalalignment="left",
-                    verticalalignment="center",
-                    transform=ax.transAxes,
+                    bbox=dict(facecolor="white", alpha=1),
                 )
 
                 results[(z1, z2, band)] = dict(
-                    phi_star=popt[0], M_star=popt[1], alpha=popt[2], cov=pcov
-                )
+                    phi_star=popt[0] * 10**2,
+                    M_star=popt[1] - 5 * np.log10(inputCatalog.cosmology.h),
+                    alpha=popt[2],
+                    cov=pcov,
+                )  # TODO rescale the covariance and variances
 
             else:
                 k_centers = np.median(np.array(list(k)), axis=1)
                 ax.plot(k_centers, v, "-o")  # Plot raw number counts
 
             colIter += 1
-        ax.text(
-            0.25,
-            0.3,
-            f"{z_lower:0.2f}<z<{z_lower+z_step:0.2f}",
-            horizontalalignment="left",
-            verticalalignment="center",
-            transform=ax.transAxes,
-        )
         rowIter += 1
 
     # Formatting each plot
@@ -1327,7 +1318,7 @@ def luminosityFunction(
     for a in axs[:, 0]:
         if fit_schecter:
             # a.set_ylabel("$\phi [h^3 Mpc^{-3]}]$")
-            a.set_ylabel("$\phi [Mpc^{-3]}]$")
+            a.set_ylabel("$\phi [h^3 Mpc^{-3]}]$")
         else:
             a.set_ylabel("$N_{gals}$")
 
@@ -1758,7 +1749,6 @@ def GCR_filter_overlord(
     z_min=None,
     mag_scatter=0.15,
     nside=128,
-    bright_app_limit=15,
 ):
     """
     Construct a complete set of magnitude and redshift selection filters for
@@ -1812,7 +1802,7 @@ def GCR_filter_overlord(
             f"mag_true_{band}_lsst_no_host_extinction<{limiting_mags[band]+band_limit_max_dict[band]}"
         )  # limiting_mags has been swapped for band_limit_max_dict here
         filters.append(
-            f"mag_true_{band}_lsst_no_host_extinction>{bright_app_limit}"
+            f"mag_true_{band}_lsst_no_host_extinction>{band_saturation[band]}"
         )  # Bright limit
 
     # Add the redshift filter
