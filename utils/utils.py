@@ -19,7 +19,7 @@ visits_per_yr = (
     np.array([56, 74, 184, 187, 166, 171]) / 10
 )  # visits per year in u-g-r-i-z-y
 
-bandColors = ["violet", "blue", "forestgreen", "lime", "yellow", "red"]
+bandColors = ["violet", "blue", "forestgreen", "lime", "orange", "red"]
 band_color = {}
 for band, col in zip(LSST_bands, bandColors):
     band_color[band] = col
@@ -53,13 +53,14 @@ def schecterEvolutionPlot(res, tight=True, save=False, fname=None):
                 alpha_arr.append(res[k]["alpha"])
                 redshift_arr.append(np.median([k[0], k[1]]))
 
-        axs[0].plot(redshift_arr, phi_star_arr, "-o", label=f"{b} band")
-        axs[1].plot(redshift_arr, M_star_arr, "-o", label=f"{b} band")
-        axs[2].plot(redshift_arr, alpha_arr, "-o", label=f"{b} band")
+        myKwargs = {"label": f"{b} band", "marker": "o", "color": band_color[b]}
+
+        axs[0].plot(redshift_arr, phi_star_arr, **myKwargs)
+        axs[1].plot(redshift_arr, M_star_arr, **myKwargs)
+        axs[2].plot(redshift_arr, alpha_arr, **myKwargs)
 
     axs[-1].set_xlabel("$z$")
     axs[0].legend(ncols=2)
-    r"", r"", None
     axs[0].set_ylabel(r"$\phi* \times 10^{-2} [\text{Mpc}^{-3} \text{ h}^3]$")
     axs[1].set_ylabel(r"$M* - 5 \log(\text{h}) [\text{mag}]$")
     axs[2].set_ylabel(r"$\alpha$")
