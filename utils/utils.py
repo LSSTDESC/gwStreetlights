@@ -19,6 +19,11 @@ visits_per_yr = (
     np.array([56, 74, 184, 187, 166, 171]) / 10
 )  # visits per year in u-g-r-i-z-y
 
+bandColors = ["violet", "blue", "forestgreen", "lime", "yellow", "red"]
+band_color = {}
+for band, col in zip(LSST_bands, bandColors):
+    band_color[band] = col
+
 saturation = [14.7, 15.7, 15.8, 15.8, 15.3, 13.9]  # CCD saturation in mags, per band
 band_saturation = {}
 for band, sat in zip(LSST_bands, saturation):
@@ -175,7 +180,9 @@ def run_survey_diagnostics(
     fig_zprec, ax_zprec = redshiftPrecisionPlot(data, year, modeled=modeled)
 
     # Magnitude non–uniformity
-    fig_uni, ax_uni = mag_uniformity_plot(hp_band_dict, hi_mag=hi_mag, low_mag=low_mag)
+    fig_uni, ax_uni = mag_uniformity_plot(
+        hp_band_dict, limiting_mags, hi_mag=hi_mag, low_mag=low_mag
+    )
     # TODO: Add a healpix map, and direct comparison to the imposed parameters
 
     # Magnitude–limit consistency check
@@ -341,6 +348,7 @@ def apply_lsst_depth_and_uniformity(
 
 def mag_uniformity_plot(
     hp_band_dictionary,
+    hp_lim_mags,
     nside=128,
     low_mag=24.5,
     hi_mag=27.8,
@@ -406,7 +414,10 @@ def mag_uniformity_plot(
             density=False,
             bins=np.arange(low_mag, hi_mag, step=mag_step),
             label=f"{band}",
+            color=band_color[band],
         )
+        ax.axvline(np.median(limits), alpha=0.5, color=band_color[band], ls="--")
+        ax.axvline(hp_lim_mags[band], alpha=0.5, color=band_color[band], ls="-.")
     ax.legend()
 
     ax.set_xlabel(f"Limiting magnitude in each NSIDE={nside} healpix pixel")
