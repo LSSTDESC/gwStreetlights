@@ -52,10 +52,11 @@ def schecterEvolutionPlot(res, tight=True, save=False, fname=None):
         axs[1].plot(redshift_arr, M_star_arr, "-o", label=f"{b} band")
         axs[2].plot(redshift_arr, alpha_arr, "-o", label=f"{b} band")
 
-    axs[0].set_xlabel("$z$")
+    axs[-1].set_xlabel("$z$")
     axs[0].legend(ncols=2)
-    axs[0].set_ylabel("$\phi*$")
-    axs[1].set_ylabel("$M*$")
+    r"", r"", None
+    axs[0].set_ylabel(r"$\phi* \times 10^{-2} [\text{Mpc}^{-3} \text{ h}^3]$")
+    axs[1].set_ylabel(r"$M* - 5 \log(\text{h}) [\text{mag}]$")
     axs[2].set_ylabel(r"$\alpha$")
     if tight:
         fig.tight_layout()
@@ -1254,13 +1255,12 @@ def luminosityFunction(
 
                 # Now do the rescaling
                 h_cubed = np.power(inputCatalog.cosmology.h, 3)
-                popt[0] = popt[0] / h_cubed
 
                 ax.plot(
                     M_plot, schechter_M(M_plot, *popt)
                 )  # Plot the fit, rescaled here
                 ax.plot(
-                    k_centers, np.array(phi) / h_cubed, "-o"
+                    k_centers, np.array(phi), "-o"
                 )  # Plot mag vs phi, rescaled to h^3
 
                 ax.axvline(
@@ -1269,11 +1269,25 @@ def luminosityFunction(
                 ax.axvline(mag_dim_fit, color="red", alpha=0.6)
 
                 # Reporting values, formatting
+                popt[0] = popt[0] / h_cubed
                 fitTxt = ""
                 if colIter == 0:
                     fitTxt += f"{z_lower:0.2f}<z<{z_lower+z_step:0.2f}"
                     fitTxt += "\n"
-                labels = [rf"\phi^*", rf"M^* - 5 log(h)", rf"\alpha", rf"M_1", rf"M_2"]
+                labels = [
+                    rf"\phi^*",
+                    r"M^* - 5 \text{log(h)}",
+                    rf"\alpha",
+                    rf"M_1",
+                    rf"M_2",
+                ]
+                units = [
+                    r"\times 10^{-2} \text{ Mpc}^{-3} \text{ h}^3",
+                    r"\text{mag}",
+                    None,
+                    r"\text{mag}",
+                    r"\text{mag}",
+                ]
                 quantities = [
                     popt[0] * 10**2,
                     popt[1] - 5 * np.log10(inputCatalog.cosmology.h),
@@ -1282,13 +1296,18 @@ def luminosityFunction(
                     mag_bright_fit,
                 ]
 
-                for t, label in zip(quantities, labels):
-                    fitTxt += rf"${label}$ = {t:.2f}"
+                for t, label, unt in zip(quantities, labels, units):
+                    # if unt=='mag':
+                    if unt != None:
+                        fitTxt += rf"${label}$ = {t:.2f} ${unt}$"
+                        # fitTxt += rf"${label}$ [{unt}] = {t:.2f}"
+                    else:
+                        fitTxt += rf"${label}$ = {t:.2f}"
                     if label != labels[-1]:
                         fitTxt += "\n"
 
                 ax.text(
-                    0.4,
+                    0.34,
                     0.19,
                     fitTxt,
                     horizontalalignment="left",
@@ -1318,7 +1337,7 @@ def luminosityFunction(
     for a in axs[:, 0]:
         if fit_schecter:
             # a.set_ylabel("$\phi [h^3 Mpc^{-3]}]$")
-            a.set_ylabel("$\phi [h^3 Mpc^{-3]}]$")
+            a.set_ylabel("$\phi [Mpc^{-3]}]$")
         else:
             a.set_ylabel("$N_{gals}$")
 
