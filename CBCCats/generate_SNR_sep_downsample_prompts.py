@@ -67,18 +67,18 @@ signalDurations = [8, 32]
 networkThresholds = [9, 8]
 
 # This is for the BBH only prompts
-# cbcTypes = ["BBH"]
-# cbcWeights = ["UniformWeight","StellarMassWeight", "uWeight"]
-# sampNumbers = [50]  # Modified for testing
-# signalDurations = [8]
-# networkThresholds = [9]
+cbcTypes = ["BBH"]
+cbcWeights = ["yWeight"]
+sampNumbers = [75]  # Modified for testing
+signalDurations = [8]
+networkThresholds = [9]
 
 # This is for the NSBH only prompts
-cbcTypes = ["NSBH"]
-cbcWeights = ["rWeight", "yWeight"]
-sampNumbers = [10]
-signalDurations = [32]
-networkThresholds = [9]
+# cbcTypes = ["NSBH"]
+# cbcWeights = ["StellarMassWeight","rWeight","yWeight"]
+# sampNumbers = [5]
+# signalDurations = [32]
+# networkThresholds = [9]
 
 for weight in cbcWeights:
     for CBCType, n_samps, duration, network in zip(
@@ -91,11 +91,11 @@ for weight in cbcWeights:
             basePath + weight + "," + CBCType + "," + "precessing" + "," + suffix
         )  # Precessing
         individual = 2
-        out1 = ",".join(inPath1.split(",")[:-1]) + ",withSNRs_gwtc4_thirdPass"
-        out2 = ",".join(inPath2.split(",")[:-1]) + ",withSNRs_gwtc4_thirdPass"
+        out1 = ",".join(inPath1.split(",")[:-1]) + ",withSNRs_gwtc4_optimisticPass"
+        out2 = ",".join(inPath2.split(",")[:-1]) + ",withSNRs_gwtc4_optimisticPass"
         prior1 = priorSelector("aligned", CBCType)
         prior2 = priorSelector("precessing", CBCType)
         print(
-            f"python SNR_sep_downselect.py --csv1 {inPath1} --csv2 {inPath2} --out_csv_1 {out1} --out_csv_2 {out2} --prior_path_one {prior1} --prior_path_two {prior2} --n_samples {n_samps} --network {network} --individual {individual} --duration {duration} --cbc_type {CBCType} &> {outDir}/{weight}_{CBCType}_thirdPass.out &",
+            f"python SNR_sep_downselect.py --csv1 {inPath1} --csv2 {inPath2} --out_csv_1 {out1} --out_csv_2 {out2} --prior_path_one {prior1} --prior_path_two {prior2} --n_samples {n_samps} --network {network} --individual {individual} --duration {duration} --cbc_type {CBCType} &> {outDir}/{weight}_{CBCType}_optimisticPass.out &",
             end="\n\n",
         )

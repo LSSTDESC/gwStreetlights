@@ -150,7 +150,7 @@ dataDir = "/global/u1/s/seanmacb/DESC/DESC-GW/gwStreetlights/data/mockCBCCatalog
 # msk = [(x.endswith("withSNRs_gwtc4_thirdPass.csv") and x.__contains__("BBH")) or (x.endswith("withSNRs_gwtc4_secondPass.csv") and x.__contains__("NSBH")) for x in os.listdir(dataDir)]
 
 msk = [
-    (x.endswith("thirdPass.csv") and x.__contains__("NSBH"))
+    (x.endswith("optimisticPass.csv") and x.__contains__("BH"))
     for x in os.listdir(dataDir)
 ]
 # msk = [(x.endswith("fifthPass.csv") and x.__contains__("BBH")) for x in os.listdir(dataDir)]
@@ -194,9 +194,9 @@ for f in files:
         # spin=alignment # Choose spins to be aligned (1) or misaligned (0)
         # label = makeLabel(parentWeighting+","+cbcWeighting,fullItem,alignment)
         if CBCType == "BBH":
-            _pass = "_fifthPass"
+            _pass = "_optimisticPass"
         elif CBCType == "NSBH":
-            _pass = "_thirdPass"
+            _pass = "_optimisticPass"
         else:
             raise ValueError(f"CBCType ({CBCType}) is not one of the accepted types")
         label = makeLabel(
