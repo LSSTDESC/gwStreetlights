@@ -7,13 +7,9 @@ import numpy as np
 os.environ["GCR_CONFIG_SOURCE"] = "files"
 import GCRCatalogs as GCRCat
 import sys
-sys.path.append("/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/utils/utils.py")
+sys.path.append("/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/utils")
 import utils as ut
 
-# Project-specific imports
-# Assumes these already exist in your environment
-# -----------------------------------------------
-# from some_module import  dataColumns, 
 def load_config(path):
     """Load YAML configuration file."""
     with open(path, "r") as f:
@@ -48,7 +44,7 @@ def save_data_products(
     save_format : str
         'npz' or 'pickle'
     """
-    data.to_csv(os.path.join(output_path,"data.csv"))
+    data.to_csv(os.path.join(output_path,"data.csv"),index=False)
     if save_format == "npz":
         np.savez(
             os.path.join(output_path,"results"),
@@ -109,7 +105,7 @@ def getCatalogFromSize(string):
         raise ValueError(f"Something went wrong in `getCatalogFromSize` function, provided the parameter: {string}")
         return -1
 
-def getPlotParams(isProd):
+def getPlotParams(isProd,nside=256):
     """
     Helper function to provide plot parameters based on draft or production level styling.
     """
@@ -123,7 +119,7 @@ def getPlotParams(isProd):
               "faintMag":-11,
               "p0":(1e-3, -22.0, -1.1),
               "maxfev":50000,
-              "NSIDE":NSIDE,
+              "NSIDE":nside,
               "fit_schecter":True,
               "delta_mag_schecter":0.025,
               "vmax":True,
@@ -135,7 +131,7 @@ def getPlotParams(isProd):
                "faintMag":-11,
                "p0":(1e-3, -22.0, -1.1),
                "maxfev":50000,
-               "NSIDE":NSIDE,
+               "NSIDE":nside,
                "fit_schecter":True,
                "delta_mag_schecter":0.1,
                "vmax":True,
@@ -156,12 +152,12 @@ def main(config_path):
     verbose = runtime.get("verbose", False)
 
     # Derived quantities
-    NSIDE = survey["nside"]
+    nside = survey["nside"]
     
     size = survey["sim_size"]
     simulatedCatalog = GCRCat.load_catalog(getCatalogFromSize(size))
 
-    plotParams = getPlotParams(diagnostics["prod"])
+    plotParams = getPlotParams(diagnostics["prod"],nside=nside)
     
     mags_deeper = survey["mags_deeper_factor"] * survey["uniformity"]
 
@@ -190,7 +186,7 @@ def main(config_path):
         dataColumns,
         survey["airmass"],
         survey["z_max"],
-        NSIDE,
+        nside,
         z_min=survey["z_min"],
         mags_deeper=mags_deeper,
         uniformity=survey["uniformity"],
@@ -222,7 +218,7 @@ def main(config_path):
     # ------------------------
     for i, fig in enumerate(figs):
         fig_path = os.path.join(
-            io_cfg["figure_dir"], f"{prefix}_fig{i}.jpg"
+            figPath, f"{prefix}_fig{i}.jpg"
         )
         fig.savefig(fig_path)
         if verbose:
@@ -242,8 +238,7 @@ def main(config_path):
     )
 
     if verbose:
-        print("Saved data products:")
-        print(f"  {runPath}.{io_cfg.get('save_format', 'npz')}")
+        print(f"Saved data products to {runPath}")
 
     if verbose:
         print("Pipeline complete.")
