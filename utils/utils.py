@@ -215,7 +215,7 @@ def run_survey_diagnostics(
     def log(msg):
         if verbose:
             print(
-                f"[survey-diagnostics - {datetime.datetime.now():%Y-%m-%d %H:%M:%S}] {msg}"
+                f"[{datetime.datetime.now():%Y-%m-%d %H:%M:%S} - survey-diagnostics] {msg}"
             )
 
     log("Starting survey diagnostics")
@@ -406,7 +406,7 @@ def apply_lsst_depth_and_uniformity(
     def log(msg):
         if verbose:
             print(
-                f"[lsst-depth-uniformity - {datetime.datetime.now():%Y-%m-%d %H:%M:%S}] {msg}"
+                f"[{datetime.datetime.now():%Y-%m-%d %H:%M:%S} - lsst-depth-uniformity] {msg}"
             )
 
     log("Starting LSST depth + uniformity application")
