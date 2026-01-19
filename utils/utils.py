@@ -17,9 +17,8 @@ import datetime
 
 LSST_bands = ["u", "g", "r", "i", "z", "Y"]
 visits_per_yr = (
-    np.array([56, 74, 184, 187, 166, 171]) / 10
-)  # visits per year in u-g-r-i-z-y
-
+    np.array([52, 71, 174, 178, 154, 149]) / 10
+)  # visits per year in u-g-r-i-z-y, in the WFD area, from the latest opsim run (https://usdf-maf.slac.stanford.edu/allMetricResults?runId=2#Nvisits%20Maps_WFD)
 bandColors = ["violet", "blue", "forestgreen", "lime", "orange", "red"]
 band_color = {}
 for band, col in zip(LSST_bands, bandColors):
