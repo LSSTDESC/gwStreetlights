@@ -428,12 +428,18 @@ def apply_lsst_depth_and_uniformity(
         year, LSST_bands, eTime_dict, visits_dict, airmass=airmass
     )
 
+    log(
+        "Survey limiting magnitudes: "
+        + ", ".join(f"{b}={limiting_mags[b]:.2f}" for b in LSST_bands)
+    )
+
+    deeper_mags = {}
     for b in LSST_bands:
-        limiting_mags[b] += mags_deeper
+        deeper_mags[b] = limiting_mags[b] + mags_deeper
 
     log(
         "Limiting magnitudes after deepening: "
-        + ", ".join(f"{b}={limiting_mags[b]:.2f}" for b in LSST_bands)
+        + ", ".join(f"{b}={deeper_mags[b]:.2f}" for b in LSST_bands)
     )
 
     # ------------------------------------------------------------------
@@ -444,8 +450,9 @@ def apply_lsst_depth_and_uniformity(
     filters, band_limit_dict = GCR_filter_overlord(
         year,
         LSST_bands,
-        eTime_dict,
-        visits_dict,
+        # eTime_dict,
+        # visits_dict,
+        deeper_mags,
         airmass=airmass,
         z_max=z_max,
         z_min=z_min,
@@ -1965,8 +1972,9 @@ def trueZ_to_photoZ(true_z, year, modeled=False):
 def GCR_filter_overlord(
     year,
     LSST_bands,
-    e_dict,
-    v_dict,
+    # e_dict,
+    # v_dict,
+    limiting_mags,
     airmass=1.2,
     z_max=1.2,
     z_min=None,
@@ -1992,6 +2000,8 @@ def GCR_filter_overlord(
         Per-band exposure scaling factors.
     v_dict : dict
         Per-band visit or cadence scaling factors.
+    limiting_mags : dict
+        Per-band limiting magnitudes.
     airmass : float, optional
         Assumed observing airmass for depth calculations.
     z_max : float, optional
@@ -2012,7 +2022,7 @@ def GCR_filter_overlord(
     """
 
     # The magnitude limiting cut
-    limiting_mags = GCR_mag_filter_from_year(year, LSST_bands, e_dict, v_dict, airmass)
+    # limiting_mags = GCR_mag_filter_from_year(year, LSST_bands, e_dict, v_dict, airmass)
 
     band_limit_dict, band_limit_min_dict, band_limit_max_dict = (
         perBand_mag_distribution(LSST_bands, limiting_mags, mag_scatter, nside)
