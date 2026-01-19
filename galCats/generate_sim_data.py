@@ -4,11 +4,14 @@ import os
 import yaml
 import pickle
 import numpy as np
+
 os.environ["GCR_CONFIG_SOURCE"] = "files"
 import GCRCatalogs as GCRCat
 import sys
+
 sys.path.append("/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/utils")
 import utils as ut
+
 
 def load_config(path):
     """Load YAML configuration file."""
@@ -20,11 +23,13 @@ def ensure_dir(path):
     """Create directory if it does not exist."""
     os.makedirs(path, exist_ok=True)
 
+
 def getColumnsFromFile(fname):
     """Read columns from column file path"""
     with open(fname) as f:
         a = f.read().splitlines()
     return a
+
 
 def save_data_products(
     output_path,
@@ -44,16 +49,16 @@ def save_data_products(
     save_format : str
         'npz' or 'pickle'
     """
-    data.to_csv(os.path.join(output_path,"data.csv"),index=False)
+    data.to_csv(os.path.join(output_path, "data.csv"), index=False)
     if save_format == "npz":
         np.savez(
-            os.path.join(output_path,"results"),
+            os.path.join(output_path, "results"),
             results=results,
             limiting_mags=limiting_mags,
             hp_band_dict=hp_band_dict,
         )
     elif save_format == "pickle":
-        with open(os.path.join(output_path,"results.pkl"), "wb") as f:
+        with open(os.path.join(output_path, "results.pkl"), "wb") as f:
             pickle.dump(
                 {
                     "results": results,
@@ -65,7 +70,9 @@ def save_data_products(
     else:
         raise ValueError(f"Unknown save format: {save_format}")
 
-galaxySizes = ["small","medium","large"]
+
+galaxySizes = ["small", "medium", "large"]
+
 
 def getCatalogFromSize(string):
     """
@@ -93,49 +100,60 @@ def getCatalogFromSize(string):
         catalog sizes.
     """
     if not (string.lower() in galaxySizes):
-        raise ValueError(f"Galaxy catalog size provided ({string.lower()} is not one of the accepted sizes ({galaxySizes}), exiting.")
+        raise ValueError(
+            f"Galaxy catalog size provided ({string.lower()} is not one of the accepted sizes ({galaxySizes}), exiting."
+        )
         return -1
-    if string.lower()=='small':
+    if string.lower() == "small":
         return "skysim5000_v1.2_small"
-    elif string.lower()=='medium':
+    elif string.lower() == "medium":
         return "skysim5000_v1.2_image"
-    elif string.lower()=='large':
+    elif string.lower() == "large":
         return "skysim5000_v1.2"
     else:
-        raise ValueError(f"Something went wrong in `getCatalogFromSize` function, provided the parameter: {string}")
+        raise ValueError(
+            f"Something went wrong in `getCatalogFromSize` function, provided the parameter: {string}"
+        )
         return -1
 
-def getPlotParams(isProd,nside=256):
+
+def getPlotParams(isProd, nside=256):
     """
     Helper function to provide plot parameters based on draft or production level styling.
     """
-    if type(isProd)!=type(True):
-        raise ValueError(f"Parameter provided to `getPlotParams` function is not of type bool ({isProd}, type {type(isProd)}), exiting.")
+    if type(isProd) != type(True):
+        raise ValueError(
+            f"Parameter provided to `getPlotParams` function is not of type bool ({isProd}, type {type(isProd)}), exiting."
+        )
         return -1
     elif isProd:
-        return {"z_step_pz":0.01,
-              "z_step_lf":0.025,
-              "brightMag":-28,
-              "faintMag":-11,
-              "p0":(1e-3, -22.0, -1.1),
-              "maxfev":50000,
-              "NSIDE":nside,
-              "fit_schecter":True,
-              "delta_mag_schecter":0.025,
-              "vmax":True,
-              "z_min":0.1,} # Prod dict
+        return {
+            "z_step_pz": 0.01,
+            "z_step_lf": 0.025,
+            "brightMag": -28,
+            "faintMag": -11,
+            "p0": (1e-3, -22.0, -1.1),
+            "maxfev": 50000,
+            "NSIDE": nside,
+            "fit_schecter": True,
+            "delta_mag_schecter": 0.025,
+            "vmax": True,
+            "z_min": 0.1,
+        }  # Prod dict
     else:
-        return {"z_step_pz":0.01,
-               "z_step_lf":0.1,
-               "brightMag":-28,
-               "faintMag":-11,
-               "p0":(1e-3, -22.0, -1.1),
-               "maxfev":50000,
-               "NSIDE":nside,
-               "fit_schecter":True,
-               "delta_mag_schecter":0.1,
-               "vmax":True,
-               "z_min":0.1,} # Draft dict
+        return {
+            "z_step_pz": 0.01,
+            "z_step_lf": 0.1,
+            "brightMag": -28,
+            "faintMag": -11,
+            "p0": (1e-3, -22.0, -1.1),
+            "maxfev": 50000,
+            "NSIDE": nside,
+            "fit_schecter": True,
+            "delta_mag_schecter": 0.1,
+            "vmax": True,
+            "z_min": 0.1,
+        }  # Draft dict
 
 
 def main(config_path):
@@ -153,12 +171,12 @@ def main(config_path):
 
     # Derived quantities
     nside = survey["nside"]
-    
+
     size = survey["sim_size"]
     simulatedCatalog = GCRCat.load_catalog(getCatalogFromSize(size))
 
-    plotParams = getPlotParams(diagnostics["prod"],nside=nside)
-    
+    plotParams = getPlotParams(diagnostics["prod"], nside=nside)
+
     mags_deeper = survey["mags_deeper_factor"] * survey["uniformity"]
 
     dataColumns = getColumnsFromFile(io_cfg["column_file"])
@@ -167,10 +185,10 @@ def main(config_path):
     # Prepare output dirs
     # ------------------------
     prefix = io_cfg["path_prefix"]
-    runPath = os.path.join(io_cfg["output_dir"],prefix)
+    runPath = os.path.join(io_cfg["output_dir"], prefix)
     ensure_dir(runPath)
-    
-    figPath = os.path.join(runPath,io_cfg["figure_dir"])
+
+    figPath = os.path.join(runPath, io_cfg["figure_dir"])
     ensure_dir(figPath)
 
     if verbose:
@@ -217,9 +235,7 @@ def main(config_path):
     # Save figures
     # ------------------------
     for i, fig in enumerate(figs):
-        fig_path = os.path.join(
-            figPath, f"{prefix}_fig{i}.jpg"
-        )
+        fig_path = os.path.join(figPath, f"{prefix}_fig{i}.jpg")
         fig.savefig(fig_path)
         if verbose:
             print(f"Saved figure: {fig_path}")
