@@ -181,6 +181,8 @@ def main(config_path):
 
     dataColumns = getColumnsFromFile(io_cfg["column_file"])
 
+    h_val = survey.get("h", None)
+
     # ------------------------
     # Prepare output dirs
     # ------------------------
@@ -211,6 +213,7 @@ def main(config_path):
         modeled=survey["modeled"],
         spectroscopic=survey["spectroscopic"],
         verbose=verbose,
+        alternate_h=h_val
     )
 
     # ------------------------
@@ -230,16 +233,7 @@ def main(config_path):
         spectroscopic=survey["spectroscopic"],
         verbose=verbose,
     )
-
-    # ------------------------
-    # Save figures
-    # ------------------------
-    for i, fig in enumerate(figs):
-        fig_path = os.path.join(figPath, f"{prefix}_fig{i}.jpg")
-        fig.savefig(fig_path)
-        if verbose:
-            print(f"Saved figure: {fig_path}")
-
+    
     # ------------------------
     # Save data products
     # ------------------------
@@ -252,6 +246,15 @@ def main(config_path):
         hp_band_dict,
         save_format=io_cfg.get("save_format", "npz"),
     )
+
+    # ------------------------
+    # Save figures
+    # ------------------------
+    for i, fig in enumerate(figs):
+        fig_path = os.path.join(figPath, f"{prefix}_fig{i}.jpg")
+        fig.savefig(fig_path)
+        if verbose:
+            print(f"Saved figure: {fig_path}")
 
     if verbose:
         print(f"Saved data products to {runPath}")
