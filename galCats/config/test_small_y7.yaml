@@ -2,7 +2,7 @@
 # Survey configuration
 # ------------------------
 survey:
-  year: 1 # Which LSST Year depth to use
+  year: 7 # Which LSST Year depth to use
   modeled: false # Whether or not to assume modeled photo-z's
   spectroscopic: false # Whether or not to use spectroscopic redshifts
   uniformity: 0.1 # average survey uniformity, measured in sigma using a log-normal distribution
@@ -26,7 +26,7 @@ diagnostics:
 # ------------------------
 io:
   output_dir: /pscratch/sd/s/seanmacb/SkySim_realizations # the base directory prefix - this should not change
-  path_prefix: test_small # Concatenated to output_dir to form the file path 
+  path_prefix: test_small_y7 # Concatenated to output_dir to form the file path 
   figure_dir: figures # The path to the figures on top of output_dir/path_prefix
   save_format: npz   # options: npz, pickle
   column_file: /global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/galCats/config/defaultColumns.txt # Path to the data columns used for the GCR query
