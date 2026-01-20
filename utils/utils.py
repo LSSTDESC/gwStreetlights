@@ -2041,7 +2041,7 @@ def GCR_filter_overlord(
     if alternate_h0 == None:
         prefactor = 1
     else:
-        prefactor = alternate_h0 / nominal_h
+        prefactor = nominal_h / alternate_h0
     # Add the redshift filter
     filters = GCR_redshift_filter(filters, z_max * prefactor, z_min * prefactor)
 
