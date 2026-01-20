@@ -12,13 +12,14 @@ survey:
   mags_deeper_factor: 10   # mags_deeper = factor * uniformity
   sim_size: small # Survey size to query - options are small, medium, or large
   nside: 128 # The nside used for healpix map indexing and generation
+  # h: 1 # 
 
 # ------------------------
 # Magnitude cuts for diagnostics
 # ------------------------
 diagnostics:
-  hi_mag: 27.5 # High apparent magnitude cut to use
-  low_mag: 24.5 # Low apparent magnitude cut to use
+  hi_mag: 26.3 # High apparent magnitude cut to use
+  low_mag: 23 # Low apparent magnitude cut to use
   prod: true # Determines whether to use many steps in resulting plots, or to just sample coarsely
 
 # ------------------------

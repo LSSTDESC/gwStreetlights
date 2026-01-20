@@ -12,6 +12,7 @@ survey:
   mags_deeper_factor: 10   # mags_deeper = factor * uniformity
   sim_size: small # Survey size to query - options are small, medium, or large
   nside: 128 # The nside used for healpix map indexing and generation
+  h: 0.5 # Alternate h value
 
 # ------------------------
 # Magnitude cuts for diagnostics
