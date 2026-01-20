@@ -213,7 +213,7 @@ def main(config_path):
         modeled=survey["modeled"],
         spectroscopic=survey["spectroscopic"],
         verbose=verbose,
-        alternate_h=h_val
+        alternate_h=h_val,
     )
 
     # ------------------------
@@ -233,7 +233,7 @@ def main(config_path):
         spectroscopic=survey["spectroscopic"],
         verbose=verbose,
     )
-    
+
     # ------------------------
     # Save data products
     # ------------------------
