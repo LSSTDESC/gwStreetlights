@@ -4,6 +4,8 @@ from astropy.time import Time
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+
+os.environ["GCR_CONFIG_SOURCE"] = "files"
 import re
 import healpy as hp
 from astropy.cosmology.units import redshift_distance
@@ -14,6 +16,7 @@ from scipy.optimize import curve_fit
 from astropy.modeling.models import Schechter1D
 from scipy.interpolate import CubicSpline
 import datetime
+import GCRCatalogs as GCRCat
 
 LSST_bands = ["u", "g", "r", "i", "z", "Y"]
 visits_per_yr = (
@@ -38,6 +41,8 @@ expTimes = [38, 30, 30, 30, 30, 30]
 eTime_dict = {}
 for band, eTime in zip(LSST_bands, expTimes):
     eTime_dict[band] = eTime
+
+nominal_h = GCRCat.load_catalog("skysim5000_v1.2_small").cosmology.h
 
 
 def schecterEvolutionPlot(res, tight=True, save=False, fname=None):
@@ -450,14 +455,13 @@ def apply_lsst_depth_and_uniformity(
     filters, band_limit_dict = GCR_filter_overlord(
         year,
         LSST_bands,
-        # eTime_dict,
-        # visits_dict,
         deeper_mags,
         airmass=airmass,
         z_max=z_max,
         z_min=z_min,
         mag_scatter=uniformity,
         nside=NSIDE,
+        alternate_h0=alternate_h,
     )
 
     log(f"Number of GCR filters constructed: {len(filters)}")
@@ -471,6 +475,16 @@ def apply_lsst_depth_and_uniformity(
     data = pd.DataFrame(
         skysimCat.get_quantities(list(dataColumns), filters=tuple(filters))
     )
+
+    # ------------------------------------------------------------------
+    # Optional cosmology rescaling
+    # ------------------------------------------------------------------
+    if alternate_h is not None:
+        log(
+            f"Rescaling true redshifts for alternate h: "
+            f"{alternate_h} (SkySim h={skysimCat.cosmology.h})"
+        )
+        data["redshift_true"] *= alternate_h / skysimCat.cosmology.h
 
     log(f"Catalog size after GCR query: {len(data):,} objects")
 
@@ -510,16 +524,6 @@ def apply_lsst_depth_and_uniformity(
         f"Depth cuts applied: {n_before:,} → {len(data):,} objects "
         f"({len(data)/n_before:.2%} retained)"
     )
-
-    # ------------------------------------------------------------------
-    # Optional cosmology rescaling
-    # ------------------------------------------------------------------
-    if alternate_h is not None:
-        log(
-            f"Rescaling true redshifts for alternate h: "
-            f"{alternate_h} (SkySim h={skysimCat.cosmology.h})"
-        )
-        data["redshift_true"] *= alternate_h / skysimCat.cosmology.h
 
     # ------------------------------------------------------------------
     # Apply redshift model
@@ -1972,14 +1976,13 @@ def trueZ_to_photoZ(true_z, year, modeled=False):
 def GCR_filter_overlord(
     year,
     LSST_bands,
-    # e_dict,
-    # v_dict,
     limiting_mags,
     airmass=1.2,
     z_max=1.2,
     z_min=None,
     mag_scatter=0.15,
     nside=128,
+    alternate_h0=None,
 ):
     """
     Construct a complete set of magnitude and redshift selection filters for
@@ -2021,9 +2024,6 @@ def GCR_filter_overlord(
         Dictionary mapping each band to its per-pixel limiting magnitude map.
     """
 
-    # The magnitude limiting cut
-    # limiting_mags = GCR_mag_filter_from_year(year, LSST_bands, e_dict, v_dict, airmass)
-
     band_limit_dict, band_limit_min_dict, band_limit_max_dict = (
         perBand_mag_distribution(LSST_bands, limiting_mags, mag_scatter, nside)
     )
@@ -2038,8 +2038,12 @@ def GCR_filter_overlord(
             f"mag_true_{band}_lsst_no_host_extinction>{band_saturation[band]}"
         )  # Bright limit
 
+    if alternate_h0 == None:
+        prefactor = 1
+    else:
+        prefactor = alternate_h0 / nominal_h
     # Add the redshift filter
-    filters = GCR_redshift_filter(filters, z_max, z_min)
+    filters = GCR_redshift_filter(filters, z_max * prefactor, z_min * prefactor)
 
     return filters, band_limit_dict
 
