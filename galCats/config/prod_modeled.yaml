@@ -1,0 +1,38 @@
+# ------------------------
+# Survey configuration
+# ------------------------
+survey:
+  year: 1 # Which LSST Year depth to use
+  modeled: true # Whether or not to assume modeled photo-z's
+  spectroscopic: false # Whether or not to use spectroscopic redshifts
+  uniformity: 0.1 # average survey uniformity, measured in sigma using a log-normal distribution
+  airmass: 1.2 # Average airmass used in limiting mag calculation
+  z_min: 0.0 # Minimum z to query
+  z_max: 1.4 # Maximum z to query
+  mags_deeper_factor: 10 # mags_deeper = factor * uniformity
+  sim_size: large # Survey size to query - options are small, medium, or large
+  nside: 128 # The nside used for healpix map indexing and generation
+
+# ------------------------
+# Magnitude cuts for diagnostics
+# ------------------------
+diagnostics:
+  hi_mag: 27 # High apparent magnitude cut to use
+  low_mag: 22.5 # Low apparent magnitude cut to use
+  prod: true # Determines whether to use many steps in resulting plots, or to just sample coarsely
+
+# ------------------------
+# I/O
+# ------------------------
+io:
+  output_dir: /pscratch/sd/s/seanmacb/SkySim_realizations # the base directory prefix - this should not change
+  path_prefix: prod_modeled # Concatenated to output_dir to form the file path 
+  figure_dir: figures # The path to the figures on top of output_dir/path_prefix
+  save_format: npz   # options: npz, pickle
+  column_file: /global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/galCats/config/defaultColumns.txt # Path to the data columns used for the GCR query
+
+# ------------------------
+# Runtime options
+# ------------------------
+runtime:
+  verbose: true # Leave true for easy logging
