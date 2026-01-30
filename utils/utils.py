@@ -335,6 +335,7 @@ def apply_lsst_depth_and_uniformity(
     spectroscopic=False,
     alternate_h=None,
     verbose=False,
+    runNum=None
 ):
     """
     Apply LSST survey depth, spatial uniformity, and photometric–redshift effects
@@ -423,6 +424,7 @@ def apply_lsst_depth_and_uniformity(
     log(f"Magnitude deepening: {mags_deeper} mag")
     log(f"Spectroscopic mode: {spectroscopic}")
     log(f"Modeled photo-zs: {modeled}")
+    log(f"Run number: {runNum}")
 
     # ------------------------------------------------------------------
     # Compute limiting magnitudes
@@ -462,6 +464,7 @@ def apply_lsst_depth_and_uniformity(
         mag_scatter=uniformity,
         nside=NSIDE,
         alternate_h0=alternate_h,
+        runNumber=runNum
     )
 
     log(f"Number of GCR filters constructed: {len(filters)}")
@@ -1983,6 +1986,7 @@ def GCR_filter_overlord(
     mag_scatter=0.15,
     nside=128,
     alternate_h0=None,
+    runNumber=None
 ):
     """
     Construct a complete set of magnitude and redshift selection filters for
@@ -2044,6 +2048,14 @@ def GCR_filter_overlord(
         prefactor = nominal_h / alternate_h0
     # Add the redshift filter
     filters = GCR_redshift_filter(filters, z_max * prefactor, z_min * prefactor)
+
+    if runNum!=None:
+        totRuns = 10 # hard code for now
+        maxRa = 100 # hard code for now
+        
+        # Add an ra slice
+        filters.append(f"ra_true>{runNum*maxRa/totRuns}")
+        filters.append(f"ra_true<{(runNum+1)*maxRa/totRuns}")
 
     return filters, band_limit_dict
 
