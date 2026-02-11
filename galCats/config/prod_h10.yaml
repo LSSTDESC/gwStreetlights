@@ -27,7 +27,7 @@ diagnostics:
 # ------------------------
 io:
   output_dir: /pscratch/sd/s/seanmacb/SkySim_realizations # the base directory prefix - this should not change
-  path_prefix: prod_fiducial # Concatenated to output_dir to form the file path 
+  path_prefix: prod_h10 # Concatenated to output_dir to form the file path 
   figure_dir: figures # The path to the figures on top of output_dir/path_prefix
   save_format: npz   # options: npz, pickle
   column_file: /global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/galCats/config/defaultColumns.txt # Path to the data columns used for the GCR query
