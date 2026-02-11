@@ -53,7 +53,7 @@ def save_data_products(
     # data.to_csv(os.path.join(output_path, "data.csv"), index=False) # Removing this for now
     if save_format == "npz":
         np.savez(
-            os.path.join(output_path, f"run{runNumber}_results"),
+            os.path.join(output_path, "run{}_results".format(runNumber)),
             results=results,
             limiting_mags=limiting_mags,
             hp_band_dict=hp_band_dict,
@@ -69,8 +69,7 @@ def save_data_products(
                 f,
             )
     else:
-        raise ValueError("Unknown save format:",save_format)
-
+        raise ValueError(f"Unknown save format: {save_format}")
 
 galaxySizes = ["small", "medium", "large"]
 
@@ -219,7 +218,7 @@ def main(config_path,run):
         runNum=run_num
     )
 
-    csvName = os.path.join(output_path, f"data_{run_num}.csv") # Appending the run number here
+    csvName = os.path.join(runPath, f"data_{run_num}.csv") # Appending the run number here
     print(f"Saving the data to {csvName}")
     data.to_csv(csvName, index=False) # Do this first...
 
