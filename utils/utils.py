@@ -1403,6 +1403,8 @@ def luminosityFunction(
 
             bin_num = {}
             for mag_low in np.arange(brightMag, faintMag, step=delta_mag):
+                print(f"mag_low: {mag_low}")
+                print(f"delta_mag: {delta_mag}")
                 msk = np.logical_and(
                     data[columnName] > mag_low,
                     data[columnName] <= mag_low + delta_mag,
@@ -1678,6 +1680,22 @@ def dropFaintGalaxies(
             )  # Append qualifying indices to array
         data = data.drop(dropIndices, axis=0)  # Drop rows in dataframe
     return data
+
+def get_limiting_mag_dict(
+    data,
+    uniq_hp_indices,
+    lsst_bands,
+    hp_ind_label="hp_ind_nside128",
+):
+    hp_lim_mag_dict = {}
+    for ind in uniq_hp_indices:  # For each healpix index
+        hp_lim_mag_dict[ind] = {}
+        hp_data = data[
+            data[hp_ind_label] == ind
+        ]  # Subset of data, here for the healpix specified
+        for band in lsst_bands:  # Iterate over bands
+            hp_lim_mag_dict[ind][band] = np.max(hp_data[f"mag_true_{band}_lsst_no_host_extinction"])
+    return hp_lim_mag_dict
 
 
 def RaDecToIndex(RA, decl, nside):
@@ -2049,13 +2067,13 @@ def GCR_filter_overlord(
     # Add the redshift filter
     filters = GCR_redshift_filter(filters, z_max * prefactor, z_min * prefactor)
 
-    if runNum!=None:
+    if runNumber!=None:
         totRuns = 10 # hard code for now
         maxRa = 100 # hard code for now
         
         # Add an ra slice
-        filters.append(f"ra_true>{runNum*maxRa/totRuns}")
-        filters.append(f"ra_true<{(runNum+1)*maxRa/totRuns}")
+        filters.append(f"ra_true>{runNumber*maxRa/totRuns}")
+        filters.append(f"ra_true<{(runNumber+1)*maxRa/totRuns}")
 
     return filters, band_limit_dict
 
