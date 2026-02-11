@@ -6,3 +6,5 @@ slurmJobs/
 **.out
 data/*.txt
 CBCCats/outFiles/
+galCats/out
+galCats/err
