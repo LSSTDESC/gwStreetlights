@@ -68,7 +68,7 @@ def save_data_products(
                 f,
             )
     else:
-        raise ValueError("Unknown save format:",save_format)
+        raise ValueError("Unknown save format:", save_format)
 
 
 galaxySizes = ["small", "medium", "large"]
@@ -200,7 +200,7 @@ def main(config_path):
     # ------------------------
     # Data query
     # ------------------------
-    data, limiting_mags, hp_band_dict = ut.apply_lsst_depth_and_uniformity( 
+    data, limiting_mags, hp_band_dict = ut.apply_lsst_depth_and_uniformity(
         simulatedCatalog,
         survey["year"],
         dataColumns,
@@ -216,7 +216,7 @@ def main(config_path):
         alternate_h=h_val,
     )
 
-    data.to_csv(os.path.join(output_path, "data.csv"), index=False) # Do this first...
+    data.to_csv(os.path.join(output_path, "data.csv"), index=False)  # Do this first...
 
     # ------------------------
     # Diagnostics & plots
