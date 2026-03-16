@@ -5,6 +5,16 @@ import yaml
 import pickle
 import numpy as np
 import pandas as pd
+import logging
+
+# --- Logging Configuration ---
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
+
 os.environ["GCR_CONFIG_SOURCE"] = "files"
 import GCRCatalogs as GCRCat
 import sys
@@ -68,7 +78,7 @@ def save_data_products(
                 f,
             )
     else:
-        raise ValueError("Unknown save format:",save_format)
+        raise ValueError("Unknown save format:", save_format)
 
 
 galaxySizes = ["small", "medium", "large"]
@@ -101,7 +111,9 @@ def getCatalogFromSize(string):
     """
     if not (string.lower() in galaxySizes):
         raise ValueError(
-            "Galaxy catalog size provided ({} is not one of the accepted sizes ({}), exiting.".format(string.lower(),galaxySizes)
+            "Galaxy catalog size provided ({} is not one of the accepted sizes ({}), exiting.".format(
+                string.lower(), galaxySizes
+            )
         )
         return -1
     if string.lower() == "small":
@@ -156,7 +168,7 @@ def getPlotParams(isProd, nside=256):
         }  # Draft dict
 
 
-def main(config_path,data_path):
+def main(config_path, data_path):
     # ------------------------
     # Load configuration
     # ------------------------
@@ -182,11 +194,11 @@ def main(config_path,data_path):
     dataColumns = getColumnsFromFile(io_cfg["column_file"])
 
     h_val = survey.get("h", None)
-    
+
     # ------------------------
     # Read in the combined data csv
     # ------------------------
-    print("Loading the combined data from {}".format(data_path)) 
+    logger.info("Loading the combined data from {}".format(data_path))
     data = pd.read_csv(data_path)
 
     # ------------------------
@@ -195,25 +207,36 @@ def main(config_path,data_path):
 
     # Instantiate hp_band_dict
     hp_band_dict = dict()
-    for x in os.listdir(os.path.split(data_path)[0]): 
+    for x in os.listdir(os.path.split(data_path)[0]):
         # Iterate over all data.csv files
         if x.endswith("csv") and x.startswith("data"):
-            print(f"Using file {x}")
-            readPath = os.path.join(os.path.split(data_path)[0],f"run{x.split('_')[1][0]}_results.npz")
-            print(f"Trying to read {readPath}")
+            logger.info(f"Using file {x}")
+            readPath = os.path.join(
+                os.path.split(data_path)[0], f"run{x.split('_')[1][0]}_results.npz"
+            )
+            logger.info(f"Trying to read {readPath}")
             try:
-            # If results file exists
-                individualResult= np.load(readPath,allow_pickle=True)
+                # If results file exists
+                individualResult = np.load(readPath, allow_pickle=True)
                 # Grab hp_band_dict from file
-                indiv_mag_dict = { index: v for index, v in np.ndenumerate(individualResult['hp_band_dict']) }[()]
+                indiv_mag_dict = {
+                    index: v
+                    for index, v in np.ndenumerate(individualResult["hp_band_dict"])
+                }[()]
             # If results file does not exist
             except:
-                print(f"File {readPath} does not exist. Reverting to manual computation.")
+                logger.info(
+                    f"File {readPath} does not exist. Reverting to manual computation."
+                )
                 # Run ut.get_limiting_mag_dict
-                individualData = pd.read_csv(os.path.join(os.path.split(data_path)[0],x))
-                indiv_mag_dict = ut.get_limiting_mag_dict(individualData,
-                                                          np.unique(individualData["hp_ind_nside128"]),
-                                                          ut.LSST_bands,)
+                individualData = pd.read_csv(
+                    os.path.join(os.path.split(data_path)[0], x)
+                )
+                indiv_mag_dict = ut.get_limiting_mag_dict(
+                    individualData,
+                    np.unique(individualData["hp_ind_nside128"]),
+                    ut.LSST_bands,
+                )
             # Concatenate to hp_band_dict
             for k in hp_band_dict.keys():
                 hp_band_dict[k] = indiv_mag_dict[k]
@@ -222,8 +245,10 @@ def main(config_path,data_path):
     # Regenerate the limiting_mags
     # ------------------------
 
-    limiting_mags = ut.GCR_mag_filter_from_year(survey['year'], ut.LSST_bands, ut.eTime_dict, ut.visits_dict)
-    
+    limiting_mags = ut.GCR_mag_filter_from_year(
+        survey["year"], ut.LSST_bands, ut.eTime_dict, ut.visits_dict
+    )
+
     # ------------------------
     # Diagnostics & plots
     # ------------------------
@@ -261,19 +286,19 @@ def main(config_path,data_path):
     # Save figures
     # ------------------------
 
-    figPath = os.path.join(runPath,"figures")
-    
+    figPath = os.path.join(runPath, "figures")
+
     for i, fig in enumerate(figs):
         fig_path = os.path.join(figPath, f"{prefix}_combined_fig{i}.jpg")
         fig.savefig(fig_path)
         if verbose:
-            print(f"Saved figure: {fig_path}")
+            logger.info(f"Saved figure: {fig_path}")
 
     if verbose:
-        print(f"Saved data products to {runPath}")
+        logger.info(f"Saved data products to {runPath}")
 
     if verbose:
-        print("Pipeline complete, exiting.")
+        logger.info("Pipeline complete, exiting.")
 
 
 if __name__ == "__main__":
@@ -292,4 +317,4 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    main(args.config,args.data)
+    main(args.config, args.data)
