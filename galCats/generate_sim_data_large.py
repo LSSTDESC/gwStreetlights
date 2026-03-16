@@ -38,7 +38,7 @@ def save_data_products(
     limiting_mags,
     hp_band_dict,
     save_format="npz",
-    runNumber=-1
+    runNumber=-1,
 ):
     """
     Save core data products to disk.
@@ -59,7 +59,9 @@ def save_data_products(
             hp_band_dict=hp_band_dict,
         )
     elif save_format == "pickle":
-        with open(os.path.join(output_path, f"run{runNumber}_results.pkl"), "wb") as f:
+        with open(
+            os.path.join(output_path, "run{}_results.pkl".format(runNumber)), "wb"
+        ) as f:
             pickle.dump(
                 {
                     "results": results,
@@ -69,7 +71,8 @@ def save_data_products(
                 f,
             )
     else:
-        raise ValueError(f"Unknown save format: {save_format}")
+        raise ValueError("Unknown save format: {}".format(save_format))
+
 
 galaxySizes = ["small", "medium", "large"]
 
@@ -101,7 +104,9 @@ def getCatalogFromSize(string):
     """
     if not (string.lower() in galaxySizes):
         raise ValueError(
-            f"Galaxy catalog size provided ({string.lower()} is not one of the accepted sizes ({galaxySizes}), exiting."
+            "Galaxy catalog size provided ({}) is not one of the accepted sizes ({}), exiting.".format(
+                string.lower(), galaxySizes
+            )
         )
         return -1
     if string.lower() == "small":
@@ -156,7 +161,7 @@ def getPlotParams(isProd, nside=256):
         }  # Draft dict
 
 
-def main(config_path,run):
+def main(config_path, run):
     # ------------------------
     # Load configuration and run number
     # ------------------------
@@ -215,17 +220,19 @@ def main(config_path,run):
         spectroscopic=survey["spectroscopic"],
         verbose=verbose,
         alternate_h=h_val,
-        runNum=run_num
+        runNum=run_num,
     )
 
-    csvName = os.path.join(runPath, f"data_{run_num}.csv") # Appending the run number here
-    print(f"Saving the data to {csvName}")
-    data.to_csv(csvName, index=False) # Do this first...
+    csvName = os.path.join(
+        runPath, "data_{}.csv".format(run_num)
+    )  # Appending the run number here
+    print("Saving the data to {}".format(csvName))
+    data.to_csv(csvName, index=False)  # Do this first...
 
     # ------------------------
     # Diagnostics & plots
     # ------------------------
-    results, mag_lim_check_result, figs, axes = ut.run_survey_diagnostics( 
+    results, mag_lim_check_result, figs, axes = ut.run_survey_diagnostics(
         data,
         hp_band_dict,
         simulatedCatalog,
@@ -237,7 +244,7 @@ def main(config_path,run):
         hi_mag=diagnostics["hi_mag"],
         low_mag=diagnostics["low_mag"],
         spectroscopic=survey["spectroscopic"],
-        verbose=verbose
+        verbose=verbose,
     )
 
     # ------------------------
@@ -251,26 +258,29 @@ def main(config_path,run):
         limiting_mags,
         hp_band_dict,
         save_format=io_cfg.get("save_format", "npz"),
-        runNumber=run_num
+        runNumber=run_num,
     )
 
     if verbose:
-        print(f"Saved data products to {runPath}")
-    
+        print("Saved data products to {}".format(runPath))
+
     # ------------------------
     # Save figures
     # ------------------------
     for i, fig in enumerate(figs):
-        fig_path = os.path.join(figPath, f"{prefix}_run{run_num}_fig{i}.jpg")
+        fig_path = os.path.join(
+            figPath, "{}_run{}_fig{}.jpg".format(prefix, run_num, i)
+        )
         fig.savefig(fig_path)
         if verbose:
-            print(f"Saved figure: {fig_path}")
+            print("Saved figure: {}".format(fig_path))
 
     if verbose:
         print("Pipeline complete.")
 
     return 0
-    
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -284,7 +294,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "run",
         help="Run number for dividing the large galaxy catalog into smaller chunks",
-        type=int
+        type=int,
     )
 
     args = parser.parse_args()
