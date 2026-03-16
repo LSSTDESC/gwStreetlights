@@ -1406,8 +1406,8 @@ def luminosityFunction(
                 print(f"mag_low: {mag_low}")
                 print(f"delta_mag: {delta_mag}")
                 msk = np.logical_and(
-                    data[columnName] > mag_low,
-                    data[columnName] <= mag_low + delta_mag,
+                    data[columnName] > float(mag_low),
+                    data[columnName] <= float(mag_low) + delta_mag,
                 )
                 n_gals = len(data[msk])
 
