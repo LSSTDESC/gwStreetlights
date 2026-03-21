@@ -149,6 +149,7 @@ def run_survey_diagnostics(
     vmax=True,
     spectroscopic=False,
     verbose=True,
+    div=1
 ):
     """
     Run the standard diagnostics suite on a processed SkySim catalog.
@@ -250,6 +251,7 @@ def run_survey_diagnostics(
         delta_mag=delta_mag_schecter,
         fit_schecter=fit_schecter,
         use_vmax=vmax,
+        div=div
     )
 
     log(f"Luminosity function computed for {len(results)} (z-bin, band) entries")
@@ -618,7 +620,7 @@ def mag_uniformity_plot(
             color=band_color[band],
         )
         ax.axvline(np.median(limits), alpha=0.5, color=band_color[band], ls="--")
-        ax.axvline(hp_lim_mags[band], alpha=0.5, color=band_color[band], ls="-.")
+        # ax.axvline(hp_lim_mags[band], alpha=0.5, color=band_color[band], ls="-.")
     ax.legend()
 
     ax.set_xlabel(f"Limiting magnitude in each NSIDE={nside} healpix pixel")
@@ -1251,6 +1253,7 @@ def luminosityFunction(
     fit_schecter=True,
     use_vmax=True,
     z_min=0,
+    div=1
 ):
     """
     Compute, fit, and plot rest–frame galaxy luminosity functions in LSST bands
@@ -1352,7 +1355,7 @@ def luminosityFunction(
     """
     omega_area = inputCatalog.sky_area / (
         4 * np.pi * (180 / np.pi) ** 2
-    )  # The solid angle subtended by the galaxy catalog
+    ) / div # The solid angle subtended by the galaxy catalog
 
     fig, axs = plt.subplots(
         round((z_max - z_min) / z_step),
@@ -1403,8 +1406,6 @@ def luminosityFunction(
 
             bin_num = {}
             for mag_low in np.arange(brightMag, faintMag, step=delta_mag):
-                print(f"mag_low: {mag_low}")
-                print(f"delta_mag: {delta_mag}")
                 msk = np.logical_and(
                     data[columnName] > float(mag_low),
                     data[columnName] <= float(mag_low) + delta_mag,
