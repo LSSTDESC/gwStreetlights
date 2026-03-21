@@ -42,12 +42,7 @@ def getColumnsFromFile(fname):
 
 
 def save_data_products(
-    output_path,
-    results,
-    data,
-    limiting_mags,
-    hp_band_dict,
-    save_format="npz",
+    output_path, results, data, limiting_mags, hp_band_dict, save_format="npz",kmeans=False,kmean_it=0,
 ):
     """
     Save core data products to disk.
@@ -59,16 +54,22 @@ def save_data_products(
     save_format : str
         'npz' or 'pickle'
     """
+
+    if kmeans:
+        append_to = f"kmeans_{kmean_it}_"
+    else:
+        append_to = ""
+    
     # data.to_csv(os.path.join(output_path, "data.csv"), index=False) # Removing this for now
     if save_format == "npz":
         np.savez(
-            os.path.join(output_path, "combined_results"),
+            os.path.join(output_path, f"{append_to}combined_results"),
             results=results,
             limiting_mags=limiting_mags,
             hp_band_dict=hp_band_dict,
         )
     elif save_format == "pickle":
-        with open(os.path.join(output_path, "combined_results.pkl"), "wb") as f:
+        with open(os.path.join(output_path, f"{append_to}combined_results.pkl"), "wb") as f:
             pickle.dump(
                 {
                     "results": results,
@@ -168,7 +169,7 @@ def getPlotParams(isProd, nside=256):
         }  # Draft dict
 
 
-def main(config_path, data_path):
+def main(config_path, data_path, doKmeans, kmean_label):
     # ------------------------
     # Load configuration
     # ------------------------
@@ -201,45 +202,31 @@ def main(config_path, data_path):
     logger.info("Loading the combined data from {}".format(data_path))
     data = pd.read_csv(data_path)
 
+    # Split up the dataframe for the kmeans case
+    if doKmeans:
+        loaded = np.load(os.path.join(os.path.split(data_path)[0], "km_labels_50.npy"))
+        subData = data.loc[[x == kmean_label for x in loaded]]
+        del data
+        data = subData
+        del subData
+        figString = f"kmean_{kmean_label}_"
+    else:
+        figString = "all"
+
     # ------------------------
     # Regenerate the hp_band_dict
     # ------------------------
 
-    # Instantiate hp_band_dict
+    logger.info("Regenerating the limiting magnitude dictionary")
     hp_band_dict = dict()
-    for x in os.listdir(os.path.split(data_path)[0]):
-        # Iterate over all data.csv files
-        if x.endswith("csv") and x.startswith("data"):
-            logger.info(f"Using file {x}")
-            readPath = os.path.join(
-                os.path.split(data_path)[0], f"run{x.split('_')[1][0]}_results.npz"
-            )
-            logger.info(f"Trying to read {readPath}")
-            try:
-                # If results file exists
-                individualResult = np.load(readPath, allow_pickle=True)
-                # Grab hp_band_dict from file
-                indiv_mag_dict = {
-                    index: v
-                    for index, v in np.ndenumerate(individualResult["hp_band_dict"])
-                }[()]
-            # If results file does not exist
-            except:
-                logger.info(
-                    f"File {readPath} does not exist. Reverting to manual computation."
-                )
-                # Run ut.get_limiting_mag_dict
-                individualData = pd.read_csv(
-                    os.path.join(os.path.split(data_path)[0], x)
-                )
-                indiv_mag_dict = ut.get_limiting_mag_dict(
-                    individualData,
-                    np.unique(individualData["hp_ind_nside128"]),
-                    ut.LSST_bands,
-                )
-            # Concatenate to hp_band_dict
-            for k in hp_band_dict.keys():
-                hp_band_dict[k] = indiv_mag_dict[k]
+    indiv_mag_dict = ut.get_limiting_mag_dict(
+        data,
+        np.unique(data["hp_ind_nside128"]),
+        ut.LSST_bands,
+    )
+    # Concatenate to hp_band_dict
+    for k in indiv_mag_dict.keys():
+        hp_band_dict[k] = indiv_mag_dict[k]
 
     # ------------------------
     # Regenerate the limiting_mags
@@ -265,6 +252,7 @@ def main(config_path, data_path):
         low_mag=float(diagnostics["low_mag"]),
         spectroscopic=bool(survey["spectroscopic"]),
         verbose=verbose,
+        div=50 if doKmeans else 1,
     )
 
     # ------------------------
@@ -280,19 +268,21 @@ def main(config_path, data_path):
         limiting_mags,
         hp_band_dict,
         save_format=io_cfg.get("save_format", "npz"),
+        kmeans = doKmeans,
+        kmean_it = kmean_label
     )
 
     # ------------------------
     # Save figures
     # ------------------------
-
-    figPath = os.path.join(runPath, "figures")
-
-    for i, fig in enumerate(figs):
-        fig_path = os.path.join(figPath, f"{prefix}_combined_fig{i}.jpg")
-        fig.savefig(fig_path)
-        if verbose:
-            logger.info(f"Saved figure: {fig_path}")
+    if not doKmeans:
+        figPath = os.path.join(runPath, "figures")
+    
+        for i, fig in enumerate(figs):
+            fig_path = os.path.join(figPath, f"{figString}_fig{i}.jpg")
+            fig.savefig(fig_path)
+            if verbose:
+                logger.info(f"Saved figure: {fig_path}")
 
     if verbose:
         logger.info(f"Saved data products to {runPath}")
@@ -307,14 +297,47 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run LSST survey diagnostics AFTER the GCR catalog query. Best used on the combined dataset"
     )
+
     parser.add_argument(
-        "config",
-        help="Path to YAML configuration file",
-    )
-    parser.add_argument(
-        "data",
-        help="Path to combined data .csv file",
+        "-d",
+        "--dataDir",
+        help="Path to the cfs directory containing the combined dataset.",
     )
 
+    parser.add_argument(
+        "-k",
+        "--doKmeans",
+        action="store_true",
+        help="If set, will perform kmeans calculation.",
+    )
+
+    parser.add_argument(
+        "--kmean_label",
+        type=int,
+        required=False,
+        help="The kmeans label to use for this iteration.",
+    )
+
+    # parser.add_argument(
+    #     "config",
+    #     help="Path to YAML configuration file",
+    # )
+    # parser.add_argument(
+    #     "data",
+    #     help="Path to combined data .csv file",
+    # )
+
+    # parser.add_argument('--redshift_type', type=str, required=False,
+    #     help="The kmeans label to use for this iteration.",
+    # )
+
     args = parser.parse_args()
-    main(args.config, args.data)
+
+    combinedCSVPath = os.path.join(args.dataDir, "combined.csv")
+    runLabel = args.dataDir.split("/")[-2]
+
+    configDir = "/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/galCats/config"
+
+    config = os.path.join(configDir, runLabel + ".yaml")
+
+    main(config, combinedCSVPath, args.doKmeans, args.kmean_label)
