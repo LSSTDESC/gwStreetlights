@@ -6,6 +6,7 @@ import pandas as pd
 import sys
 sys.path.append("/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/utils")
 import utils as ut
+import shutil
 
 def setup_logging():
     logging.basicConfig(
@@ -36,7 +37,7 @@ def add_column_to_csv(input_csv, target_col, new_col_name,config_year):
     else:
         raise ValueError(f"Supplied column name {new_col_name}, only redshift_spectro and redshift_modeled are supported.")
     
-    temp_csv = f"/pscratch/sd/s/seanmacb/{input_csv}.tmp"
+    temp_csv = f"/pscratch/sd/s/seanmacb/{input_csv.split('/')[-2]}_combined.tmp"
     chunk_size = 1000000  # Adjust based on your available RAM
     
     logging.info(f"Processing file: {input_csv}")
@@ -67,7 +68,7 @@ def add_column_to_csv(input_csv, target_col, new_col_name,config_year):
                 logging.info(f"Processed row {i * chunk_size:,}...")
 
         # 4. Atomic Swap: Replace old file with updated file
-        os.replace(temp_csv, input_csv)
+        shutil.move(temp_csv, input_csv)
         logging.info(f"Successfully added '{new_col_name}' to {input_csv}")
 
     except Exception as e:
@@ -100,11 +101,11 @@ def main():
     # Step 2: Get the year of the specific galaxy catalog configuration. 
     # This is needed for the redshift computation.
     label = path_to_process.split("prod_")[-1].split("/")[0]
-    if label[1:3] == "10":
+    if (label[1:3] == "10") and (label[0]!='h'):
         year = 10
-    elif label[1] == "7":
+    elif (label[1] == "7") and (label[0]!='h'):
         year = 7
-    elif label[1] == "4":
+    elif (label[1] == "4") and (label[0]!='h'):
         year = 4
     else: 
         year = 1
