@@ -43,7 +43,7 @@ def getColumnsFromFile(fname):
 
 
 def save_data_products(
-    output_path, results, data, limiting_mags, hp_band_dict, phi_d, save_format="npz",kmeans=False,kmean_it=0,
+    output_path, results, data, limiting_mags, hp_band_dict, save_format="npz",kmeans=False,kmean_it=0,
 ):
     """
     Save core data products to disk.
@@ -68,7 +68,6 @@ def save_data_products(
             results=results,
             limiting_mags=limiting_mags,
             hp_band_dict=hp_band_dict,
-            phi_dictionary=phi_d
         )
     elif save_format == "pickle":
         with open(os.path.join(output_path, f"{append_to}combined_results.pkl"), "wb") as f:
@@ -77,7 +76,6 @@ def save_data_products(
                     "results": results,
                     "limiting_mags": limiting_mags,
                     "hp_band_dict": hp_band_dict,
-                    "phi_dictionary": phi_d
                 },
                 f,
             )
@@ -322,24 +320,14 @@ if __name__ == "__main__":
         help="The kmeans label to use for this iteration.",
     )
 
-    # parser.add_argument(
-    #     "config",
-    #     help="Path to YAML configuration file",
-    # )
-    # parser.add_argument(
-    #     "data",
-    #     help="Path to combined data .csv file",
-    # )
-
-    # parser.add_argument('--redshift_type', type=str, required=False,
-    #     help="The kmeans label to use for this iteration.",
-    # )
-
     args = parser.parse_args()
 
-    dirTextFile = ("/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/galCats/prod_directories.txt")
-    dataDir = Path(dirTextFile).read_text().splitlines()[args.kmean_label]
-
+    if args.doKmeans:
+        rem = args.kmean_label%50 # This becomes the kmean label 
+        quot = args.kmean_label//50 
+        dirTextFile = ("/global/homes/s/seanmacb/DESC/DESC-GW/gwStreetlights/galCats/prod_directories.txt")
+        dataDir = Path(dirTextFile).read_text().splitlines()[quot]
+        
     combinedCSVPath = os.path.join(dataDir, "combined.csv")
     runLabel = dataDir.split("/")[-2]
 
@@ -347,4 +335,4 @@ if __name__ == "__main__":
 
     config = os.path.join(configDir, runLabel + ".yaml")
 
-    main(config, combinedCSVPath, args.doKmeans, args.kmean_label)
+    main(config, combinedCSVPath, args.doKmeans, rem)
