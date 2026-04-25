@@ -237,7 +237,7 @@ def run_survey_diagnostics(
     # ------------------------------------------------------------------
     log("Computing luminosity functions")
 
-    fig_lf, axs_lf, results = luminosityFunction(
+    fig_lf, axs_lf, results, phi_dict = luminosityFunction(
         data,
         skysim_catalog,
         limiting_mags,
@@ -320,7 +320,7 @@ def run_survey_diagnostics(
 
     log("Survey diagnostics complete")
 
-    return results, mag_lim_check_result, figs, axes
+    return results, mag_lim_check_result, figs, axes, phi_dict
 
 
 def apply_lsst_depth_and_uniformity(
@@ -1366,7 +1366,7 @@ def luminosityFunction(
 
     if use_vmax:
         splines = prep_vmax_quantities(z_min, z_max, inputCatalog.cosmology)
-
+    phi_dictionary = {}
     rowIter = 0
     lum_bin_edges = np.arange(
         faintMag, brightMag + delta_mag, step=delta_mag
@@ -1462,6 +1462,7 @@ def luminosityFunction(
                     # Do a crude computation of phi=N/(V * h^3)
                     phi = np.array(list(v)) / (V_eff * inputCatalog.cosmology.h**3)
 
+                
                 k_centers = np.median(
                     np.array(list(k)), axis=1
                 )  # Compute absolute mag bin centers
@@ -1548,6 +1549,10 @@ def luminosityFunction(
                 k_centers = np.median(np.array(list(k)), axis=1)
                 ax.plot(k_centers, v, "-o")  # Plot raw number counts
 
+
+            # Append phi to a dictionary here
+            phi_dictionary[(z1, z2, band)] = [phi,k_centers]
+                
             colIter += 1
         rowIter += 1
 
@@ -1573,7 +1578,7 @@ def luminosityFunction(
     if save:
         fig.savefig(os.path.join(os.getcwd(), fname), dpi=200)
     plt.show()
-    return fig, axs, results
+    return fig, axs, results,phi_dictionary
 
 
 def getHp_band_dict(hp_ids, lsst_bands, sigma, nside, limiting_mags):
